@@ -1,16 +1,55 @@
-## Hi there 👋
+# AI Travel Companion – Mobile App
 
-<!--
-**travel-ai-app/travel-ai-app** is a ✨ _special_ ✨ repository because its `README.md` (this file) appears on your GitHub profile.
+An AI-powered travel companion app that helps travelers decide **what to do right now**, track their **trip expenses**, and manage their **dynamic itinerary**.
 
-Here are some ideas to get you started:
+---
 
-- 🔭 I’m currently working on ...
-- 🌱 I’m currently learning ...
-- 👯 I’m looking to collaborate on ...
-- 🤔 I’m looking for help with ...
-- 💬 Ask me about ...
-- 📫 How to reach me: ...
-- 😄 Pronouns: ...
-- ⚡ Fun fact: ...
--->
+## 🔍 What this app does
+
+- Suggests activities in real time based on:
+  - location
+  - time of day
+  - weather
+  - user preferences
+  - past choices
+- Compares places using:
+  - rating
+  - number of reviews
+  - distance
+  - review content (summary via AI)
+- Lets the user store trip bookings:
+  - flights
+  - accommodation
+  - tours & activities
+- Fills the free time between bookings with AI suggestions.
+- Tracks all trip expenses (no hard budget limits).
+- Supports **OCR from receipts** to auto-log expenses.
+- Future-ready for **multi-language support (including Greek)**.
+
+---
+
+## 🧱 Tech stack (planned)
+
+- **Frontend:** Flutter
+- **Backend / Data:** Firebase Firestore
+- **Auth:** Firebase Authentication
+- **AI:** OpenAI API (and similar models)
+- **Maps & Places:** Google Maps / Places API (or alternative)
+- **Storage:** Firebase Storage (for receipts, etc.)
+
+---
+
+## 📂 Project structure (planned)
+
+```text
+lib/
+  models/
+  services/
+  screens/
+  widgets/
+  localization/
+  theme/
+  helpers/
+docs/
+  product-spec.md
+  roadmap.md
