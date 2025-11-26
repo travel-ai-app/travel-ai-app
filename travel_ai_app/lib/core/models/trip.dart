@@ -9,13 +9,14 @@ class Trip { // Κλάση που αναπαριστά ένα ταξίδι
 
   Trip({ // Κανονικός constructor
     required this.id, // Απαιτείται id
-    required this.title; // Απαιτείται τίτλος
-    required this.destination; // Απαιτείται προορισμός
-    required this.startDate; // Απαιτείται startDate
-    required this.endDate; // Απαιτείται endDate
-    required this.currencyCode; // Απαιτείται νόμισμα
-    this.baseBudget; // Προαιρετικό budget
+    required this.title, // Απαιτείται τίτλος
+    required this.destination, // Απαιτείται προορισμός
+    required this.startDate, // Απαιτείται startDate
+    required this.endDate, // Απαιτείται endDate
+    required this.currencyCode, // Απαιτείται νόμισμαδ
+    this.baseBudget, // Προαιρετικό budget
   }); // Τέλος constructor
+
 
   int get totalDays => endDate.difference(startDate).inDays + 1; // Συνολικές μέρες ταξιδιού
 

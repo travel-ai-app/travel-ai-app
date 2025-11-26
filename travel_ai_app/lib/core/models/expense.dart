@@ -46,13 +46,14 @@ class Expense { // Κλάση για έξοδο ταξιδιού
       id: json['id'] as String, // id
       tripId: json['tripId'] as String, // tripId
       dateTime: DateTime.parse(json['dateTime'] as String), // dateTime σε DateTime
-      amount: (json['amount'] as num).toDouble(); // amount σε double
+      amount: (json['amount'] as num).toDouble(), // amount σε double
       currencyCode: json['currencyCode'] as String, // currencyCode
       category: json['category'] as String, // category
       paymentMethod: json['paymentMethod'] as String?, // paymentMethod
       note: json['note'] as String?, // note
     ); // Τέλος Expense(...)
   } // Τέλος fromJson
+
 
   Map<String, dynamic> toJson() { // Μετατροπή σε Map
     return <String, dynamic>{ // Επιστροφή Map
