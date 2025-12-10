@@ -1,164 +1,176 @@
-import 'package:flutter/material.dart';
-import '../../core/mock/mock_data.dart';
-import '../../core/models/expense.dart';
-import '../../core/models/trip.dart';
-import 'add_expense_demo_screen.dart'; // ΝΕΟ import για την οθόνη προσθήκης
+import 'package:flutter/material.dart'; // Flutter UI
+import '../../core/mock/mock_data.dart'; // Demo δεδομένα (trip + expenses)
+import '../../core/models/expense.dart'; // Μοντέλο Expense
+import '../../core/models/trip.dart'; // Μοντέλο Trip
+import 'add_expense_demo_screen.dart'; // Φόρμα προσθήκης demo εξόδου
 
-class DemoExpensesScreen extends StatelessWidget {
-  const DemoExpensesScreen({super.key});
+class DemoExpensesScreen extends StatefulWidget { // Stateful οθόνη για να κάνουμε refresh
+  const DemoExpensesScreen({super.key}); // Constructor
 
-  @override
-  Widget build(BuildContext context) {
-    final Trip trip = MockData.demoTrip; // demo ταξίδι
-    final List<Expense> expenses = MockData.demoExpenses; // demo έξοδα
-    final double totalExpenses = MockData.totalDemoExpensesThb; // σύνολο
-    final double baseBudget = trip.baseBudget ?? 0; // budget ή 0
-    final double remaining = baseBudget - totalExpenses; // υπόλοιπο
+  @override // Υπερσκίαση createState
+  State<DemoExpensesScreen> createState() => _DemoExpensesScreenState(); // Δημιουργία state
+} // Τέλος DemoExpensesScreen
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Demo Trip Expenses'),
-        centerTitle: true,
-      ),
-      body: ListView.builder(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-        itemCount: expenses.length + 1, // +1 για το summary στην αρχή
-        itemBuilder: (BuildContext context, int index) {
-          if (index == 0) {
-            return _buildSummaryCard(
-              baseBudget,
-              totalExpenses,
-              remaining,
-              trip.currencyCode,
-            );
-          }
+class _DemoExpensesScreenState extends State<DemoExpensesScreen> { // State κλάση
+  bool _hasAddedExpense = false; // Flag για να ξέρουμε αν προστέθηκε έξοδο όσο ήμασταν εδώ
 
-          final Expense expense = expenses[index - 1];
+  @override // Υπερσκίαση build
+  Widget build(BuildContext context) { // Δημιουργία UI
+    final Trip trip = MockData.demoTrip; // Παίρνουμε το demo ταξίδι
+    final List<Expense> expenses = MockData.demoExpenses; // Παίρνουμε τη λίστα demo εξόδων
+    final double totalExpenses = MockData.totalDemoExpensesThb; // Σύνολο εξόδων
+    final double baseBudget = trip.baseBudget ?? 0; // Budget ή 0 αν είναι null
+    final double remaining = baseBudget - totalExpenses; // Υπόλοιπο
 
-          return Card(
-            margin: const EdgeInsets.symmetric(vertical: 6),
-            child: ListTile(
-              leading: const Icon(Icons.payments),
-              title: Text(
-                '${expense.category} · ${expense.amount.toStringAsFixed(0)} ${expense.currencyCode}',
-              ),
-              subtitle: Text(
-                expense.note ?? 'No note',
-              ),
-              trailing: Text(
-                _formatDate(expense.dateTime),
-                style: const TextStyle(fontSize: 12),
-              ),
-            ),
-          );
-        },
-      ),
-      floatingActionButton: FloatingActionButton( // ΝΕΟ κουμπί για προσθήκη εξόδου
-        onPressed: () async {
-          final bool? added = await Navigator.of(context).push<bool>(
-            MaterialPageRoute<bool>(
-              builder: (BuildContext context) =>
-                  const AddExpenseDemoScreen(), // ανοίγει τη φόρμα
-            ),
-          );
+    return WillPopScope( // Για να ελέγχουμε τι θα επιστρέψουμε όταν κάνουμε back
+      onWillPop: () async { // Όταν πατηθεί back (system ή app bar)
+        Navigator.of(context).pop(_hasAddedExpense); // Επιστρέφουμε true/false στον caller
+        return false; // Δεν αφήνουμε το default pop, το χειριστήκαμε εμείς
+      }, // Τέλος onWillPop
+      child: Scaffold( // Βασικό scaffold
+        appBar: AppBar( // Πάνω μπάρα
+          title: const Text('Demo Trip Expenses'), // Τίτλος
+          centerTitle: true, // Κεντραρισμένος
+        ), // Τέλος AppBar
+        body: ListView.builder( // Scrollable λίστα
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12), // Περιθώρια
+          itemCount: expenses.length + 1, // +1 για το summary στην αρχή
+          itemBuilder: (BuildContext context, int index) { // Builder για κάθε row
+            if (index == 0) { // Πρώτη γραμμή = summary card
+              return _buildSummaryCard( // Επιστροφή summary
+                baseBudget, // Budget
+                totalExpenses, // Συνολικά έξοδα
+                remaining, // Υπόλοιπο
+                trip.currencyCode, // Νόμισμα
+              ); // Τέλος _buildSummaryCard
+            } // Τέλος if index == 0
 
-          // Προαιρετικά στο μέλλον: αν added == true, μπορούμε να κάνουμε επιπλέον actions
-          // Προς το παρόν, επειδή χρησιμοποιούμε MockData.demoExpenses,
-          // όταν γυρνάμε πίσω η λίστα ξαναχτίζεται και βλέπει τα νέα δεδομένα.
-        },
-        child: const Icon(Icons.add), // εικονίδιο +
-      ),
-    );
-  }
+            final Expense expense = expenses[index - 1]; // Το σωστό έξοδο (offset -1)
 
-  Widget _buildSummaryCard(
-    double baseBudget,
-    double totalExpenses,
-    double remaining,
-    String currencyCode,
-  ) {
-    final bool isOver = remaining < 0;
-    final String remainingLabel = isOver ? 'Over budget' : 'Remaining';
-    final String remainingValue =
-        _formatAmount(remaining.abs(), currencyCode);
+            return Card( // Card γύρω από το κάθε έξοδο
+              margin: const EdgeInsets.symmetric(vertical: 6), // Κάθετο margin
+              child: ListTile( // Γραμμή λίστας
+                leading: const Icon(Icons.payments), // Εικονίδιο
+                title: Text( // Τίτλος
+                  '${expense.category} · ${expense.amount.toStringAsFixed(0)} ${expense.currencyCode}', // Κατηγορία + ποσό + νόμισμα
+                ), // Τέλος title
+                subtitle: Text( // Δευτερεύον κείμενο
+                  expense.note ?? 'No note', // Σημείωση ή default
+                ), // Τέλος subtitle
+                trailing: Text( // Κείμενο δεξιά
+                  _formatDate(expense.dateTime), // Μορφοποιημένη ημερομηνία/ώρα
+                  style: const TextStyle(fontSize: 12), // Μικρή γραμματοσειρά
+                ), // Τέλος trailing
+              ), // Τέλος ListTile
+            ); // Τέλος Card
+          }, // Τέλος itemBuilder
+        ), // Τέλος ListView.builder
+        floatingActionButton: FloatingActionButton( // Κουμπί +
+          onPressed: () async { // Όταν πατηθεί
+            final bool? added = await Navigator.of(context).push<bool>( // Ανοίγουμε τη φόρμα AddExpenseDemoScreen
+              MaterialPageRoute<bool>( // Route
+                builder: (BuildContext context) => const AddExpenseDemoScreen(), // Φόρμα προσθήκης
+              ), // Τέλος MaterialPageRoute
+            ); // Τέλος push
 
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            const Text(
-              'Trip budget summary',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: <Widget>[
-                _buildSummaryItem(
-                  'Budget',
-                  _formatAmount(baseBudget, currencyCode),
-                ),
-                _buildSummaryItem(
-                  'Spent',
-                  _formatAmount(totalExpenses, currencyCode),
-                ),
-                _buildSummaryItem(
-                  remainingLabel,
-                  remainingValue,
-                  isWarning: isOver,
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+            if (added == true) { // Αν όντως προστέθηκε έξοδο
+              _hasAddedExpense = true; // Σημειώνουμε ότι κάτι προστέθηκε
+              setState(() {}); // Κάνουμε rebuild για να φανεί και στη λίστα/summary
+            } // Τέλος if
+          }, // Τέλος onPressed
+          child: const Icon(Icons.add), // Εικονίδιο +
+        ), // Τέλος FloatingActionButton
+      ), // Τέλος Scaffold
+    ); // Τέλος WillPopScope
+  } // Τέλος build
 
-  Widget _buildSummaryItem(
-    String label,
-    String value, {
-    bool isWarning = false,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 12,
-            color: Colors.grey,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: isWarning ? Colors.red : Colors.black,
-          ),
-        ),
-      ],
-    );
-  }
+  Widget _buildSummaryCard( // Widget για το summary Budget/Spent/Remaining
+      double baseBudget, // Budget
+      double totalExpenses, // Σύνολο εξόδων
+      double remaining, // Υπόλοιπο
+      String currencyCode, // Νόμισμα
+      ) { // Άνοιγμα _buildSummaryCard
+    final bool isOver = remaining < 0; // Αν ξεπεράσαμε το budget
+    final String remainingLabel = isOver ? 'Over budget' : 'Remaining'; // Ετικέτα
+    final String remainingValue = _formatAmount(remaining.abs(), currencyCode); // Πάντα θετικό ποσό
 
-  static String _formatAmount(double amount, String currencyCode) {
-    return '${amount.toStringAsFixed(0)} $currencyCode';
-  }
+    return Card( // Card
+      margin: const EdgeInsets.symmetric(vertical: 8), // Margin
+      child: Padding( // Εσωτερικό padding
+        padding: const EdgeInsets.all(16), // Όλα 16
+        child: Column( // Κάθετη διάταξη
+          crossAxisAlignment: CrossAxisAlignment.start, // Αριστερά
+          children: <Widget>[ // Παιδιά
+            const Text( // Τίτλος summary
+              'Trip budget summary', // Κείμενο
+              style: TextStyle( // Στυλ
+                fontSize: 16, // Μέγεθος
+                fontWeight: FontWeight.bold, // Έντονο
+              ), // Τέλος style
+            ), // Τέλος Text
+            const SizedBox(height: 8), // Κενό
+            Row( // Γραμμή με 3 πεδία
+              mainAxisAlignment: MainAxisAlignment.spaceBetween, // Απόσταση
+              children: <Widget>[ // Παιδιά
+                _buildSummaryItem( // Πρώτο: Budget
+                  'Budget', // Label
+                  _formatAmount(baseBudget, currencyCode), // Value
+                ), // Τέλος summary item
+                _buildSummaryItem( // Δεύτερο: Spent
+                  'Spent', // Label
+                  _formatAmount(totalExpenses, currencyCode), // Value
+                ), // Τέλος summary item
+                _buildSummaryItem( // Τρίτο: Remaining / Over
+                  remainingLabel, // Label
+                  remainingValue, // Value
+                  isWarning: isOver, // Αν θα γίνει κόκκινο
+                ), // Τέλος summary item
+              ], // Τέλος children
+            ), // Τέλος Row
+          ], // Τέλος children Column
+        ), // Τέλος Column
+      ), // Τέλος Padding
+    ); // Τέλος Card
+  } // Τέλος _buildSummaryCard
 
-  static String _formatDate(DateTime dateTime) {
-    final String day = dateTime.day.toString().padLeft(2, '0');
-    final String month = dateTime.month.toString().padLeft(2, '0');
-    final String year = dateTime.year.toString();
-    final String hour = dateTime.hour.toString().padLeft(2, '0');
-    final String minute = dateTime.minute.toString().padLeft(2, '0');
-    return '$day/$month/$year $hour:$minute';
-  }
-}
+  Widget _buildSummaryItem( // Μικρό widget για Budget / Spent / Remaining
+      String label, // Ετικέτα
+      String value, { // Τιμή
+        bool isWarning = false, // Αν είναι warning
+      }) { // Άνοιγμα _buildSummaryItem
+    return Column( // Κάθετη διάταξη
+      crossAxisAlignment: CrossAxisAlignment.start, // Αριστερά
+      children: <Widget>[ // Παιδιά
+        Text( // Label
+          label, // Κείμενο
+          style: const TextStyle( // Στυλ
+            fontSize: 12, // Μέγεθος
+            color: Colors.grey, // Γκρι
+          ), // Τέλος style
+        ), // Τέλος Text
+        const SizedBox(height: 4), // Κενό
+        Text( // Value
+          value, // Κείμενο
+          style: TextStyle( // Στυλ
+            fontSize: 14, // Μέγεθος
+            fontWeight: FontWeight.w600, // Μισό-έντονο
+            color: isWarning ? Colors.red : Colors.black, // Κόκκινο αν warning
+          ), // Τέλος style
+        ), // Τέλος Text
+      ], // Τέλος children
+    ); // Τέλος Column
+  } // Τέλος _buildSummaryItem
+
+  static String _formatAmount(double amount, String currencyCode) { // Format ποσού
+    return '${amount.toStringAsFixed(0)} $currencyCode'; // Π.χ. "60000 THB"
+  } // Τέλος _formatAmount
+
+  static String _formatDate(DateTime dateTime) { // Μορφοποίηση ημερομηνίας/ώρας
+    final String day = dateTime.day.toString().padLeft(2, '0'); // Ημέρα
+    final String month = dateTime.month.toString().padLeft(2, '0'); // Μήνας
+    final String year = dateTime.year.toString(); // Έτος
+    final String hour = dateTime.hour.toString().padLeft(2, '0'); // Ώρα
+    final String minute = dateTime.minute.toString().padLeft(2, '0'); // Λεπτά
+    return '$day/$month/$year $hour:$minute'; // π.χ. "20/11/2025 15:30"
+  } // Τέλος _formatDate
+} // Τέλος _DemoExpensesScreenState

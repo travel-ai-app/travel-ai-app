@@ -1,140 +1,169 @@
-import 'package:flutter/material.dart'; // Βασικό Flutter UI
-import '../../core/mock/mock_data.dart'; // Demo δεδομένα (trip + expenses)
-import '../../core/models/trip.dart'; // Μοντέλο Trip
-import '../../core/models/expense.dart'; // Μοντέλο Expense
-import '../expenses/demo_expenses_screen.dart'; // Οθόνη demo εξόδων
+import 'package:flutter/material.dart';
+import '../../core/mock/mock_data.dart';
+import '../../core/models/trip.dart';
+import '../../core/models/expense.dart';
+import '../expenses/demo_expenses_screen.dart';
+import 'demo_itinerary_screen.dart'; // ΝΕΟ import
 
-class DemoTripOverviewScreen extends StatelessWidget { // Οθόνη επισκόπησης ταξιδιού
-  const DemoTripOverviewScreen({super.key}); // Constructor με key
+class DemoTripOverviewScreen extends StatefulWidget {
+  const DemoTripOverviewScreen({super.key});
 
-  @override // Υπερσκίαση build
-  Widget build(BuildContext context) { // Δημιουργία UI
-    final Trip trip = MockData.demoTrip; // Παίρνουμε το demo ταξίδι
-    final List<Expense> expenses = MockData.demoExpenses; // Παίρνουμε τα demo έξοδα
-    final double totalExpenses = MockData.totalDemoExpensesThb; // Σύνολο εξόδων
-    final double baseBudget = trip.baseBudget ?? 0; // Budget ή 0 αν είναι null
-    final double remaining = baseBudget - totalExpenses; // Υπόλοιπο
-    final bool isOver = remaining < 0; // Αν είναι πάνω από budget
+  @override
+  State<DemoTripOverviewScreen> createState() =>
+      _DemoTripOverviewScreenState();
+}
 
-    return Scaffold( // Βασικό scaffold της σελίδας
-      appBar: AppBar( // Πάνω μπάρα
-        title: const Text('Demo Trip Overview'), // Τίτλος της σελίδας
-        centerTitle: true, // Κεντραρισμένος τίτλος
-      ), // Τέλος AppBar
-      body: Padding( // Περιθώριο γύρω από το περιεχόμενο
-        padding: const EdgeInsets.all(16), // Όλα 16
-        child: Column( // Κάθετη διάταξη
-          crossAxisAlignment: CrossAxisAlignment.start, // Στοίχιση αριστερά
-          children: <Widget>[ // Λίστα από widgets
-            Text( // Τίτλος ταξιδιού
-              trip.title, // Π.χ. "Thailand Escape"
-              style: const TextStyle( // Στυλ τίτλου
-                fontSize: 22, // Μέγεθος γραμματοσειράς
-                fontWeight: FontWeight.bold, // Έντονα
-              ), // Τέλος style
-            ), // Τέλος Text
-            const SizedBox(height: 4), // Κενό
-            Text( // Προορισμός
-              trip.destination, // Π.χ. "Phuket, Thailand"
-              style: const TextStyle( // Στυλ προορισμού
-                fontSize: 16, // Μέγεθος
-                color: Colors.grey, // Γκρι χρώμα
-              ), // Τέλος style
-            ), // Τέλος Text
-            const SizedBox(height: 8), // Κενό
-            Text( // Ημερομηνίες ταξιδιού
-              _formatTripDates(trip), // "20/11/2025 - 27/11/2025"
-              style: const TextStyle( // Στυλ ημερομηνιών
-                fontSize: 14, // Μέγεθος
-              ), // Τέλος style
-            ), // Τέλος Text
-            const SizedBox(height: 16), // Κενό
+class _DemoTripOverviewScreenState extends State<DemoTripOverviewScreen> {
+  @override
+  Widget build(BuildContext context) {
+    final Trip trip = MockData.demoTrip;
+    final List<Expense> expenses = MockData.demoExpenses;
+    final double totalExpenses = MockData.totalDemoExpensesThb;
+    final double baseBudget = trip.baseBudget ?? 0;
+    final double remaining = baseBudget - totalExpenses;
+    final bool isOver = remaining < 0;
 
-            Card( // Κάρτα για συνοπτικό budget
-              child: Padding( // Εσωτερικό padding
-                padding: const EdgeInsets.all(16), // Padding
-                child: Row( // Γραμμή με 3 στήλες
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween, // Απόσταση
-                  children: <Widget>[ // Παιδιά row
-                    _buildInfoColumn( // Πρώτη στήλη
-                      'Budget', // Ετικέτα
-                      _formatAmount(baseBudget, trip.currencyCode), // Ποσό
-                    ), // Τέλος στήλης
-                    _buildInfoColumn( // Δεύτερη στήλη
-                      'Spent', // Ετικέτα
-                      _formatAmount(totalExpenses, trip.currencyCode), // Ποσό εξόδων
-                    ), // Τέλος στήλης
-                    _buildInfoColumn( // Τρίτη στήλη
-                      isOver ? 'Over budget' : 'Remaining', // Αν είναι πάνω από budget
-                      _formatAmount(remaining.abs(), trip.currencyCode), // Ποσό υπολοίπου/υπέρβασης
-                      isWarning: isOver, // Αν θα γίνει κόκκινο
-                    ), // Τέλος στήλης
-                  ], // Τέλος children
-                ), // Τέλος Row
-              ), // Τέλος Padding
-            ), // Τέλος Card
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Demo Trip Overview'),
+        centerTitle: true,
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            // ΤΙΤΛΟΣ ΤΑΞΙΔΙΟΥ
+            Text(
+              trip.title,
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              trip.destination,
+              style: const TextStyle(
+                fontSize: 16,
+                color: Colors.grey,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _formatTripDates(trip),
+              style: const TextStyle(
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 16),
 
-            const SizedBox(height: 16), // Κενό
+            // ΚΟΥΜΠΙΑ: ITINERARY + FULL EXPENSES
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<Widget>(
+                          builder: (BuildContext context) =>
+                          const DemoItineraryScreen(),
+                        ),
+                      );
+                    },
+                    child: const Text('View itinerary'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () async {
+                      final bool? added =
+                      await Navigator.of(context).push<bool>(
+                        MaterialPageRoute<bool>(
+                          builder: (BuildContext context) =>
+                          const DemoExpensesScreen(),
+                        ),
+                      );
+                      if (added == true) {
+                        setState(() {}); // refresh overview όταν μπει νέο έξοδο
+                      }
+                    },
+                    child: const Text('View expenses'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
 
-            Text( // Τίτλος για τα έξοδα
-              'Recent expenses (${expenses.length})', // Π.χ. "Recent expenses (3)"
-              style: const TextStyle( // Στυλ κειμένου
-                fontSize: 16, // Μέγεθος
-                fontWeight: FontWeight.w600, // Μισό-έντονα
-              ), // Τέλος style
-            ), // Τέλος Text
+            // SUMMARY CARD
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: <Widget>[
+                    _buildInfoColumn(
+                      'Budget',
+                      _formatAmount(baseBudget, trip.currencyCode),
+                    ),
+                    _buildInfoColumn(
+                      'Spent',
+                      _formatAmount(totalExpenses, trip.currencyCode),
+                    ),
+                    _buildInfoColumn(
+                      isOver ? 'Over budget' : 'Remaining',
+                      _formatAmount(remaining.abs(), trip.currencyCode),
+                      isWarning: isOver,
+                    ),
+                  ],
+                ),
+              ),
+            ),
 
-            const SizedBox(height: 8), // Κενό
+            const SizedBox(height: 16),
 
-            Expanded( // Λαμβάνει τον υπόλοιπο χώρο
-              child: ListView.builder( // Λίστα με τα έξοδα
-                itemCount: expenses.length, // Πλήθος εξόδων
-                itemBuilder: (BuildContext context, int index) { // Builder
-                  final Expense expense = expenses[index]; // Τρέχον έξοδο
-                  return ListTile( // Γραμμή λίστας
-                    leading: const Icon(Icons.payments), // Εικονίδιο
-                    title: Text( // Τίτλος
-                      '${expense.category} · ${expense.amount.toStringAsFixed(0)} ${expense.currencyCode}', // Κατηγορία + ποσό
-                    ), // Τέλος title
-                    subtitle: Text( // Δευτερεύον κείμενο
-                      expense.note ?? 'No note', // Σημείωση
-                    ), // Τέλος subtitle
-                    trailing: Text( // Κείμενο δεξιά
-                      _formatDate(expense.dateTime), // Ημερομηνία
-                      style: const TextStyle(fontSize: 12), // Μικρή γραμματοσειρά
-                    ), // Τέλος trailing
-                  ); // Τέλος ListTile
-                }, // Τέλος itemBuilder
-              ), // Τέλος ListView.builder
-            ), // Τέλος Expanded
+            Text(
+              'Recent expenses (${expenses.length})',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
 
-            const SizedBox(height: 12), // Κενό
-
-            SizedBox( // Κουμπί full width
-              width: double.infinity, // Πιάνει όλο το πλάτος
-              child: ElevatedButton( // Κουμπί
-                onPressed: () { // Όταν πατηθεί
-                  Navigator.of(context).push( // Πηγαίνει σε νέα οθόνη
-                    MaterialPageRoute<Widget>( // Route τύπου Material
-                      builder: (BuildContext context) =>
-                          const DemoExpensesScreen(), // Ανοίγει την DemoExpensesScreen
-                    ), // Τέλος MaterialPageRoute
-                  ); // Τέλος push
-                }, // Τέλος onPressed
-                child: const Text('View full expenses list'), // Κείμενο στο κουμπί
-              ), // Τέλος ElevatedButton
-            ), // Τέλος SizedBox
-          ], // Τέλος children column
-        ), // Τέλος Column
-      ), // Τέλος Padding
-    ); // Τέλος Scaffold
-  } // Τέλος build
+            Expanded(
+              child: ListView.builder(
+                itemCount: expenses.length,
+                itemBuilder: (BuildContext context, int index) {
+                  final Expense expense = expenses[index];
+                  return ListTile(
+                    leading: const Icon(Icons.payments),
+                    title: Text(
+                      '${expense.category} · ${expense.amount.toStringAsFixed(0)} ${expense.currencyCode}',
+                    ),
+                    subtitle: Text(
+                      expense.note ?? 'No note',
+                    ),
+                    trailing: Text(
+                      _formatDate(expense.dateTime),
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _buildInfoColumn(
-    String label,
-    String value, {
-    bool isWarning = false,
-  }) {
+      String label,
+      String value, {
+        bool isWarning = false,
+      }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
