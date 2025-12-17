@@ -1,6 +1,6 @@
-import '../../models/trip.dart'; // Μοντέλο ταξιδιού
-import '../../models/trip_day.dart'; // Μοντέλο ημέρας ταξιδιού (itinerary day)
-import '../../models/activity.dart'; // Μοντέλο δραστηριότητας
+import '../models/trip.dart';       // Μοντέλο ταξιδιού (σωστό path: core/models)
+import '../models/trip_day.dart';   // Μοντέλο ημέρας ταξιδιού (itinerary day)
+import '../models/activity.dart';   // Μοντέλο δραστηριότητας
 
 /// Συμβόλαιο για πρόσβαση σε δεδομένα ταξιδιού / itinerary / activities.
 abstract class TripRepository {
@@ -8,7 +8,7 @@ abstract class TripRepository {
   Future<Trip?> getActiveTrip();
 
   /// Παρακολουθεί το ενεργό ταξίδι σε πραγματικό χρόνο.
-  /// Προς το παρόν το fake repo θα στέλνει ένα σταθερό demo trip.
+  /// Προς το παρόν το in-memory repo ή το fake repo θα στέλνει ένα σταθερό demo trip.
   Stream<Trip?> watchActiveTrip();
 
   /// Επιστρέφει τις μέρες του itinerary για ένα trip.

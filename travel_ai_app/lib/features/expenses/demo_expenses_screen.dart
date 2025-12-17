@@ -1,176 +1,301 @@
-import 'package:flutter/material.dart'; // Flutter UI
-import '../../core/mock/mock_data.dart'; // Demo δεδομένα (trip + expenses)
-import '../../core/models/expense.dart'; // Μοντέλο Expense
-import '../../core/models/trip.dart'; // Μοντέλο Trip
-import 'add_expense_demo_screen.dart'; // Φόρμα προσθήκης demo εξόδου
+import 'package:flutter/material.dart'; // Flutter UI //
 
-class DemoExpensesScreen extends StatefulWidget { // Stateful οθόνη για να κάνουμε refresh
-  const DemoExpensesScreen({super.key}); // Constructor
+import '../../core/models/expense.dart'; // Expense model //
+import '../../core/models/trip.dart'; // Trip model //
+import '../../core/data/in_memory_expense_repository.dart'; // Persistent expense repo //
 
-  @override // Υπερσκίαση createState
-  State<DemoExpensesScreen> createState() => _DemoExpensesScreenState(); // Δημιουργία state
-} // Τέλος DemoExpensesScreen
+import 'add_expense_demo_screen.dart'; // Add/Edit expense screen //
 
-class _DemoExpensesScreenState extends State<DemoExpensesScreen> { // State κλάση
-  bool _hasAddedExpense = false; // Flag για να ξέρουμε αν προστέθηκε έξοδο όσο ήμασταν εδώ
+class DemoExpensesScreen extends StatefulWidget { // Screen //
+  final Trip trip; // Trip //
 
-  @override // Υπερσκίαση build
-  Widget build(BuildContext context) { // Δημιουργία UI
-    final Trip trip = MockData.demoTrip; // Παίρνουμε το demo ταξίδι
-    final List<Expense> expenses = MockData.demoExpenses; // Παίρνουμε τη λίστα demo εξόδων
-    final double totalExpenses = MockData.totalDemoExpensesThb; // Σύνολο εξόδων
-    final double baseBudget = trip.baseBudget ?? 0; // Budget ή 0 αν είναι null
-    final double remaining = baseBudget - totalExpenses; // Υπόλοιπο
+  const DemoExpensesScreen({ // Ctor //
+    super.key, // Key //
+    required this.trip, // Trip //
+  }); // End ctor //
 
-    return WillPopScope( // Για να ελέγχουμε τι θα επιστρέψουμε όταν κάνουμε back
-      onWillPop: () async { // Όταν πατηθεί back (system ή app bar)
-        Navigator.of(context).pop(_hasAddedExpense); // Επιστρέφουμε true/false στον caller
-        return false; // Δεν αφήνουμε το default pop, το χειριστήκαμε εμείς
-      }, // Τέλος onWillPop
-      child: Scaffold( // Βασικό scaffold
-        appBar: AppBar( // Πάνω μπάρα
-          title: const Text('Demo Trip Expenses'), // Τίτλος
-          centerTitle: true, // Κεντραρισμένος
-        ), // Τέλος AppBar
-        body: ListView.builder( // Scrollable λίστα
-          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12), // Περιθώρια
-          itemCount: expenses.length + 1, // +1 για το summary στην αρχή
-          itemBuilder: (BuildContext context, int index) { // Builder για κάθε row
-            if (index == 0) { // Πρώτη γραμμή = summary card
-              return _buildSummaryCard( // Επιστροφή summary
-                baseBudget, // Budget
-                totalExpenses, // Συνολικά έξοδα
-                remaining, // Υπόλοιπο
-                trip.currencyCode, // Νόμισμα
-              ); // Τέλος _buildSummaryCard
-            } // Τέλος if index == 0
+  @override
+  State<DemoExpensesScreen> createState() => _DemoExpensesScreenState(); // Create state //
+} // End widget //
 
-            final Expense expense = expenses[index - 1]; // Το σωστό έξοδο (offset -1)
+class _DemoExpensesScreenState extends State<DemoExpensesScreen> { // State //
+  final InMemoryExpenseRepository _expenseRepo = InMemoryExpenseRepository(); // Repo //
 
-            return Card( // Card γύρω από το κάθε έξοδο
-              margin: const EdgeInsets.symmetric(vertical: 6), // Κάθετο margin
-              child: ListTile( // Γραμμή λίστας
-                leading: const Icon(Icons.payments), // Εικονίδιο
-                title: Text( // Τίτλος
-                  '${expense.category} · ${expense.amount.toStringAsFixed(0)} ${expense.currencyCode}', // Κατηγορία + ποσό + νόμισμα
-                ), // Τέλος title
-                subtitle: Text( // Δευτερεύον κείμενο
-                  expense.note ?? 'No note', // Σημείωση ή default
-                ), // Τέλος subtitle
-                trailing: Text( // Κείμενο δεξιά
-                  _formatDate(expense.dateTime), // Μορφοποιημένη ημερομηνία/ώρα
-                  style: const TextStyle(fontSize: 12), // Μικρή γραμματοσειρά
-                ), // Τέλος trailing
-              ), // Τέλος ListTile
-            ); // Τέλος Card
-          }, // Τέλος itemBuilder
-        ), // Τέλος ListView.builder
-        floatingActionButton: FloatingActionButton( // Κουμπί +
-          onPressed: () async { // Όταν πατηθεί
-            final bool? added = await Navigator.of(context).push<bool>( // Ανοίγουμε τη φόρμα AddExpenseDemoScreen
-              MaterialPageRoute<bool>( // Route
-                builder: (BuildContext context) => const AddExpenseDemoScreen(), // Φόρμα προσθήκης
-              ), // Τέλος MaterialPageRoute
-            ); // Τέλος push
+  bool _loading = true; // Loading //
+  List<Expense> _expenses = <Expense>[]; // Items //
+  double _total = 0.0; // Total //
 
-            if (added == true) { // Αν όντως προστέθηκε έξοδο
-              _hasAddedExpense = true; // Σημειώνουμε ότι κάτι προστέθηκε
-              setState(() {}); // Κάνουμε rebuild για να φανεί και στη λίστα/summary
-            } // Τέλος if
-          }, // Τέλος onPressed
-          child: const Icon(Icons.add), // Εικονίδιο +
-        ), // Τέλος FloatingActionButton
-      ), // Τέλος Scaffold
-    ); // Τέλος WillPopScope
-  } // Τέλος build
+  bool _changed = false; // ✅ Return to caller when true //
 
-  Widget _buildSummaryCard( // Widget για το summary Budget/Spent/Remaining
-      double baseBudget, // Budget
-      double totalExpenses, // Σύνολο εξόδων
-      double remaining, // Υπόλοιπο
-      String currencyCode, // Νόμισμα
-      ) { // Άνοιγμα _buildSummaryCard
-    final bool isOver = remaining < 0; // Αν ξεπεράσαμε το budget
-    final String remainingLabel = isOver ? 'Over budget' : 'Remaining'; // Ετικέτα
-    final String remainingValue = _formatAmount(remaining.abs(), currencyCode); // Πάντα θετικό ποσό
+  @override
+  void initState() { // init //
+    super.initState(); // super //
+    _loadExpenses(); // load //
+  } // end init //
 
-    return Card( // Card
-      margin: const EdgeInsets.symmetric(vertical: 8), // Margin
-      child: Padding( // Εσωτερικό padding
-        padding: const EdgeInsets.all(16), // Όλα 16
-        child: Column( // Κάθετη διάταξη
-          crossAxisAlignment: CrossAxisAlignment.start, // Αριστερά
-          children: <Widget>[ // Παιδιά
-            const Text( // Τίτλος summary
-              'Trip budget summary', // Κείμενο
-              style: TextStyle( // Στυλ
-                fontSize: 16, // Μέγεθος
-                fontWeight: FontWeight.bold, // Έντονο
-              ), // Τέλος style
-            ), // Τέλος Text
-            const SizedBox(height: 8), // Κενό
-            Row( // Γραμμή με 3 πεδία
-              mainAxisAlignment: MainAxisAlignment.spaceBetween, // Απόσταση
-              children: <Widget>[ // Παιδιά
-                _buildSummaryItem( // Πρώτο: Budget
-                  'Budget', // Label
-                  _formatAmount(baseBudget, currencyCode), // Value
-                ), // Τέλος summary item
-                _buildSummaryItem( // Δεύτερο: Spent
-                  'Spent', // Label
-                  _formatAmount(totalExpenses, currencyCode), // Value
-                ), // Τέλος summary item
-                _buildSummaryItem( // Τρίτο: Remaining / Over
-                  remainingLabel, // Label
-                  remainingValue, // Value
-                  isWarning: isOver, // Αν θα γίνει κόκκινο
-                ), // Τέλος summary item
-              ], // Τέλος children
-            ), // Τέλος Row
-          ], // Τέλος children Column
-        ), // Τέλος Column
-      ), // Τέλος Padding
-    ); // Τέλος Card
-  } // Τέλος _buildSummaryCard
+  Future<void> _loadExpenses() async { // load //
+    if (!mounted) return; // guard //
+    setState(() { // set //
+      _loading = true; // loading on //
+    }); // end set //
 
-  Widget _buildSummaryItem( // Μικρό widget για Budget / Spent / Remaining
-      String label, // Ετικέτα
-      String value, { // Τιμή
-        bool isWarning = false, // Αν είναι warning
-      }) { // Άνοιγμα _buildSummaryItem
-    return Column( // Κάθετη διάταξη
-      crossAxisAlignment: CrossAxisAlignment.start, // Αριστερά
-      children: <Widget>[ // Παιδιά
-        Text( // Label
-          label, // Κείμενο
-          style: const TextStyle( // Στυλ
-            fontSize: 12, // Μέγεθος
-            color: Colors.grey, // Γκρι
-          ), // Τέλος style
-        ), // Τέλος Text
-        const SizedBox(height: 4), // Κενό
-        Text( // Value
-          value, // Κείμενο
-          style: TextStyle( // Στυλ
-            fontSize: 14, // Μέγεθος
-            fontWeight: FontWeight.w600, // Μισό-έντονο
-            color: isWarning ? Colors.red : Colors.black, // Κόκκινο αν warning
-          ), // Τέλος style
-        ), // Τέλος Text
-      ], // Τέλος children
-    ); // Τέλος Column
-  } // Τέλος _buildSummaryItem
+    final List<Expense> list = await _expenseRepo.getExpensesForTrip(widget.trip); // fetch list //
+    final double total = await _expenseRepo.getTotalForTrip(widget.trip); // fetch total //
 
-  static String _formatAmount(double amount, String currencyCode) { // Format ποσού
-    return '${amount.toStringAsFixed(0)} $currencyCode'; // Π.χ. "60000 THB"
-  } // Τέλος _formatAmount
+    list.sort((a, b) => b.dateTime.compareTo(a.dateTime)); // newest first //
 
-  static String _formatDate(DateTime dateTime) { // Μορφοποίηση ημερομηνίας/ώρας
-    final String day = dateTime.day.toString().padLeft(2, '0'); // Ημέρα
-    final String month = dateTime.month.toString().padLeft(2, '0'); // Μήνας
-    final String year = dateTime.year.toString(); // Έτος
-    final String hour = dateTime.hour.toString().padLeft(2, '0'); // Ώρα
-    final String minute = dateTime.minute.toString().padLeft(2, '0'); // Λεπτά
-    return '$day/$month/$year $hour:$minute'; // π.χ. "20/11/2025 15:30"
-  } // Τέλος _formatDate
-} // Τέλος _DemoExpensesScreenState
+    if (!mounted) return; // guard //
+
+    setState(() { // set //
+      _expenses = list; // set list //
+      _total = total; // set total //
+      _loading = false; // loading off //
+    }); // end set //
+  } // end load //
+
+  void _exitWithResult() { // ✅ single exit path //
+    Navigator.of(context).pop(_changed); // return changed //
+  } // end exit //
+
+  Future<bool> _onWillPop() async { // ✅ system back / gesture back //
+    _exitWithResult(); // exit //
+    return false; // prevent default pop (we already popped) //
+  } // end willpop //
+
+  Future<void> _openAdd() async { // open add //
+    final bool? changed = await Navigator.of(context).push<bool>( // push //
+      MaterialPageRoute<bool>( // route //
+        builder: (_) => AddExpenseDemoScreen( // screen //
+          trip: widget.trip, // trip //
+        ), // end screen //
+      ), // end route //
+    ); // end push //
+
+    if (changed == true) { // if changed //
+      _changed = true; // mark //
+      await _loadExpenses(); // reload //
+    } // end if //
+  } // end open add //
+
+  Future<void> _openEdit(Expense expense) async { // open edit //
+    final bool? changed = await Navigator.of(context).push<bool>( // push //
+      MaterialPageRoute<bool>( // route //
+        builder: (_) => AddExpenseDemoScreen( // screen //
+          trip: widget.trip, // trip //
+          existingExpense: expense, // edit mode //
+        ), // end screen //
+      ), // end route //
+    ); // end push //
+
+    if (changed == true) { // if changed //
+      _changed = true; // mark //
+      await _loadExpenses(); // reload //
+    } // end if //
+  } // end open edit //
+
+  Future<void> _deleteExpense(Expense expense) async { // delete //
+    await _expenseRepo.deleteExpense(expense.id); // delete //
+    _changed = true; // mark //
+    await _loadExpenses(); // reload //
+  } // end delete //
+
+  @override
+  Widget build(BuildContext context) { // build //
+    final Trip trip = widget.trip; // trip //
+
+    final double baseBudget = _tryGetBaseBudget(trip); // safe budget //
+    final double remaining = baseBudget > 0 ? (baseBudget - _total) : 0.0; // remaining //
+
+    return WillPopScope( // ✅ intercept system back //
+      onWillPop: _onWillPop, // handler //
+      child: Scaffold( // scaffold //
+        appBar: AppBar( // appbar //
+          title: Text( // title //
+            '${trip.title.isNotEmpty ? trip.title : trip.destination} · Expenses', // text //
+          ), // end title //
+          centerTitle: true, // center //
+          leading: BackButton( // ✅ appbar back returns result too //
+            onPressed: _exitWithResult, // exit //
+          ), // end back button //
+        ), // end appbar //
+
+        body: RefreshIndicator( // pull to refresh //
+          onRefresh: _loadExpenses, // refresh //
+          child: _loading // if loading //
+              ? const Center(child: CircularProgressIndicator()) // spinner //
+              : ListView.builder( // list //
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12), // padding //
+                  itemCount: _expenses.length + 1, // + summary //
+                  itemBuilder: (BuildContext context, int index) { // builder //
+                    if (index == 0) { // summary card //
+                      return _buildSummaryCard( // card //
+                        baseBudget, // budget //
+                        _total, // spent //
+                        remaining, // remaining //
+                        trip.currencyCode, // currency //
+                      ); // end //
+                    } // end summary //
+
+                    final Expense expense = _expenses[index - 1]; // item //
+
+                    return Dismissible( // swipe delete //
+                      key: ValueKey<String>(expense.id), // key //
+                      direction: DismissDirection.endToStart, // direction //
+                      background: Container( // background //
+                        alignment: Alignment.centerRight, // align //
+                        padding: const EdgeInsets.symmetric(horizontal: 16), // padding //
+                        decoration: BoxDecoration( // decoration //
+                          color: Colors.red.withOpacity(0.12), // color //
+                          borderRadius: BorderRadius.circular(12), // radius //
+                        ), // end decoration //
+                        child: const Icon(Icons.delete, color: Colors.red), // icon //
+                      ), // end background //
+                      confirmDismiss: (_) async { // confirm //
+                        final bool? ok = await showDialog<bool>( // dialog //
+                          context: context, // context //
+                          builder: (_) { // builder //
+                            return AlertDialog( // dialog //
+                              title: const Text('Delete expense?'), // title //
+                              content: const Text('This action cannot be undone.'), // content //
+                              actions: [ // actions //
+                                TextButton( // cancel //
+                                  onPressed: () => Navigator.of(context).pop(false), // pop false //
+                                  child: const Text('Cancel'), // text //
+                                ), // end //
+                                TextButton( // delete //
+                                  onPressed: () => Navigator.of(context).pop(true), // pop true //
+                                  child: const Text('Delete'), // text //
+                                ), // end //
+                              ], // end actions //
+                            ); // end dialog //
+                          }, // end builder //
+                        ); // end showDialog //
+                        return ok ?? false; // return //
+                      }, // end confirm //
+                      onDismissed: (_) async { // dismissed //
+                        await _deleteExpense(expense); // delete //
+                      }, // end dismissed //
+                      child: Card( // card //
+                        margin: const EdgeInsets.symmetric(vertical: 6), // margin //
+                        child: ListTile( // tile //
+                          onTap: () => _openEdit(expense), // tap edit //
+                          leading: const Icon(Icons.payments), // icon //
+                          title: Text( // title //
+                            '${expense.category} · ${expense.amount.toStringAsFixed(0)} ${expense.currencyCode}', // text //
+                          ), // end title //
+                          subtitle: Text(_buildSubtitle(expense)), // subtitle //
+                          trailing: Text( // trailing //
+                            _formatDate(expense.dateTime), // date //
+                            style: const TextStyle(fontSize: 12), // style //
+                          ), // end trailing //
+                        ), // end tile //
+                      ), // end card //
+                    ); // end dismissible //
+                  }, // end itemBuilder //
+                ), // end list //
+        ), // end body //
+
+        floatingActionButton: FloatingActionButton( // fab //
+          onPressed: _openAdd, // add //
+          child: const Icon(Icons.add), // icon //
+        ), // end fab //
+      ), // end scaffold //
+    ); // end WillPopScope //
+  } // end build //
+
+  String _buildSubtitle(Expense expense) { // subtitle //
+    final String payment = (expense.paymentMethod ?? '').trim(); // payment //
+    final String note = (expense.note ?? '').trim(); // note //
+
+    final String paymentText = payment.isEmpty ? 'Payment: -' : 'Payment: $payment'; // payment text //
+    final String noteText = note.isEmpty ? 'No note' : note; // note text //
+
+    return '$paymentText\n$noteText'; // return //
+  } // end subtitle //
+
+  Widget _buildSummaryCard( // summary card //
+    double baseBudget, // budget //
+    double totalExpenses, // spent //
+    double remaining, // remaining //
+    String currencyCode, // currency //
+  ) { // start //
+    final bool hasBudget = baseBudget > 0; // has budget //
+    final bool isOver = hasBudget ? remaining < 0 : false; // over //
+    final String remainingLabel = isOver ? 'Over budget' : 'Remaining'; // label //
+    final String remainingValue = hasBudget ? _formatAmount(remaining.abs(), currencyCode) : '-'; // value //
+
+    return Card( // card //
+      margin: const EdgeInsets.symmetric(vertical: 8), // margin //
+      child: Padding( // padding //
+        padding: const EdgeInsets.all(16), // padding //
+        child: Column( // column //
+          crossAxisAlignment: CrossAxisAlignment.start, // align //
+          children: <Widget>[ // children //
+            const Text( // title //
+              'Trip budget summary', // text //
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold), // style //
+            ), // end title //
+            const SizedBox(height: 8), // gap //
+            Row( // row //
+              mainAxisAlignment: MainAxisAlignment.spaceBetween, // space //
+              children: <Widget>[ // children //
+                _buildSummaryItem('Budget', hasBudget ? _formatAmount(baseBudget, currencyCode) : '-'), // budget //
+                _buildSummaryItem('Spent', _formatAmount(totalExpenses, currencyCode)), // spent //
+                _buildSummaryItem(remainingLabel, remainingValue, isWarning: isOver), // remaining //
+              ], // end children //
+            ), // end row //
+          ], // end children //
+        ), // end column //
+      ), // end padding //
+    ); // end card //
+  } // end summary card //
+
+  Widget _buildSummaryItem( // summary item //
+    String label, // label //
+    String value, { // value //
+    bool isWarning = false, // warning //
+  }) { // start //
+    return Column( // column //
+      crossAxisAlignment: CrossAxisAlignment.start, // align //
+      children: <Widget>[ // children //
+        Text( // label //
+          label, // text //
+          style: const TextStyle(fontSize: 12, color: Colors.grey), // style //
+        ), // end label //
+        const SizedBox(height: 4), // gap //
+        Text( // value //
+          value, // text //
+          style: TextStyle( // style //
+            fontSize: 14, // size //
+            fontWeight: FontWeight.w600, // weight //
+            color: isWarning ? Colors.red : Colors.black, // color //
+          ), // end style //
+        ), // end value //
+      ], // end children //
+    ); // end column //
+  } // end item //
+
+  double _tryGetBaseBudget(Trip trip) { // safe budget //
+    try { // try //
+      final dynamic t = trip; // dynamic //
+      final dynamic v = t.baseBudget; // attempt //
+      if (v is num) return v.toDouble(); // num -> double //
+      return 0.0; // fallback //
+    } catch (_) { // catch //
+      return 0.0; // fallback //
+    } // end //
+  } // end helper //
+
+  static String _formatAmount(double amount, String currencyCode) { // format //
+    return '${amount.toStringAsFixed(0)} $currencyCode'; // return //
+  } // end format //
+
+  static String _formatDate(DateTime dateTime) { // format date //
+    final String day = dateTime.day.toString().padLeft(2, '0'); // day //
+    final String month = dateTime.month.toString().padLeft(2, '0'); // month //
+    final String year = dateTime.year.toString(); // year //
+    final String hour = dateTime.hour.toString().padLeft(2, '0'); // hour //
+    final String minute = dateTime.minute.toString().padLeft(2, '0'); // minute //
+    return '$day/$month/$year $hour:$minute'; // return //
+  } // end format //
+} // end state //
