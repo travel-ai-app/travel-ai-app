@@ -11,6 +11,8 @@ import 'categories_breakdown_screen.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../expenses/add_expense_demo_screen.dart'; // ή το σωστό path στο project σου
 import 'package:travel_ai_app/presentation/activity_details_bottom_sheet.dart';
+import '../expenses/expense_details_bottom_sheet.dart';
+
 /// Οθόνη επισκόπησης για ένα Trip με tabs:
 /// - Overview
 /// - Itinerary
@@ -1116,7 +1118,7 @@ Future<void> _onAddActivityPressed(
     builder: (ctx) {
       return _AddActivitySheet(
         date: date,
-        dayPart: dayPart,
+        dayPart: existing?.dayPart ?? dayPart,
         currencyCode: widget.trip.currencyCode,
       );
     },
@@ -1203,7 +1205,7 @@ class _ExpensesTab extends StatefulWidget {
 class _ExpensesTabState extends State<_ExpensesTab>
     with AutomaticKeepAliveClientMixin {
   final InMemoryExpenseRepository _expenseRepo = InMemoryExpenseRepository();
-
+bool _isDetailsSheetOpen = false; // controls Add expense overlay
   List<Expense> _expenses = <Expense>[];
   double _total = 0.0; // Σύνολο εξόδων για το trip
   bool _sortNewestFirst = true; // sort flag (true=newest first) //
@@ -1357,6 +1359,18 @@ Padding( // controls wrapper //
             ), // end style
             textAlign: TextAlign.center, // align
           ), // end text
+
+const SizedBox(height: 16),
+SizedBox(
+  width: double.infinity,
+  child: ElevatedButton.icon(
+    onPressed: _onAddExpensePressed,
+    icon: const Icon(Icons.add),
+    label: const Text('Add expense'),
+  ),
+),
+
+
         ], // end children
       ), // end column
     ), // end padding
@@ -1368,119 +1382,216 @@ Padding( // controls wrapper //
                   itemBuilder: (context, index) {
                     final exp = _expenses[index];
 
-                    return Dismissible(
-                      key: ValueKey(exp.id),
-                      direction: DismissDirection.endToStart,
-                      background: Container(
-                        alignment: Alignment.centerRight,
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        color: Colors.red,
-                        child: const Icon(
-                          Icons.delete,
-                          color: Colors.white,
+return Dismissible(
+  key: ValueKey(exp.id),
+
+  // ✅ Διπλό swipe: δεξιά=edit, αριστερά=delete
+  direction: DismissDirection.horizontal,
+
+  // Background όταν κάνεις swipe δεξιά (Edit)
+  background: Container(
+    alignment: Alignment.centerLeft,
+    padding: const EdgeInsets.symmetric(horizontal: 16),
+    color: Colors.blueGrey,
+    child: const Icon(
+      Icons.edit,
+      color: Colors.white,
+    ),
+  ),
+
+  // Background όταν κάνεις swipe αριστερά (Delete)
+  secondaryBackground: Container(
+    alignment: Alignment.centerRight,
+    padding: const EdgeInsets.symmetric(horizontal: 16),
+    color: Colors.red,
+    child: const Icon(
+      Icons.delete,
+      color: Colors.white,
+    ),
+  ),
+
+  // ✅ Ελέγχουμε τι θα γίνει ανά direction
+  confirmDismiss: (direction) async {
+    // Swipe δεξιά -> Edit (δεν κάνουμε dismiss)
+    if (direction == DismissDirection.startToEnd) {
+      final bool? changed = await Navigator.of(context).push<bool>(
+        MaterialPageRoute<bool>(
+          builder: (_) => AddExpenseDemoScreen(
+            trip: widget.trip,
+            existingExpense: exp,
+          ),
+        ),
+      );
+
+      if (changed == true) {
+        await _loadExpenses();
+      }
+
+      return false; // ❗ ΜΗΝ φύγει το item από τη λίστα
+    }
+
+    // Swipe αριστερά -> Delete (με confirm)
+    if (direction == DismissDirection.endToStart) {
+      return _confirmDelete(context);
+    }
+
+    return false;
+  },
+
+  // ✅ Εδώ θα μπει μόνο όταν έγινε πραγματικό dismiss (δηλ. delete)
+  onDismissed: (direction) async {
+    if (direction == DismissDirection.endToStart) {
+      await _expenseRepo.deleteExpense(exp.id);
+      await _loadExpenses();
+    }
+  },
+
+  // Το παιδί σου μένει όπως είναι (tap = details sheet)
+  child: Card(
+    margin: const EdgeInsets.only(bottom: 8),
+    child: ListTile(
+      onTap: () async {
+        setState(() => _isDetailsSheetOpen = true);
+
+        await showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          builder: (_) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 12,
+                right: 12,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 12,
+              ),
+              child: Material(
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(24)),
+                clipBehavior: Clip.antiAlias,
+                elevation: 12,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(height: 12),
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(999),
+                          color: Colors.black26,
                         ),
                       ),
-                      confirmDismiss: (_) async {
-                        return _confirmDelete(context);
+                    ),
+                    const SizedBox(height: 12),
+                    ExpenseDetailsBottomSheet(
+                      expense: exp,
+                      onEdit: () async {
+                        final bool? changed =
+                            await Navigator.of(context).push<bool>(
+                          MaterialPageRoute<bool>(
+                            builder: (_) => AddExpenseDemoScreen(
+                              trip: widget.trip,
+                              existingExpense: exp,
+                            ),
+                          ),
+                        );
+
+                        if (changed == true) {
+                          await _loadExpenses();
+                        }
                       },
-                      onDismissed: (_) async {
+                      onDelete: () async {
                         await _expenseRepo.deleteExpense(exp.id);
                         await _loadExpenses();
                       },
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
 
-                      // ✅ TAP = EDIT
-                      child: Card(
-                        margin: const EdgeInsets.only(bottom: 8),
-child: ListTile( // row expense
-  onTap: () async { // tap = edit
-    final bool? changed = await Navigator.of(context).push<bool>( // open edit
-      MaterialPageRoute<bool>( // route
-        builder: (_) => AddExpenseDemoScreen( // screen
-          trip: widget.trip, // trip
-          existingExpense: exp, // edit mode
-        ), // end screen
-      ), // end route
-    ); // end push
+        if (mounted) {
+          setState(() => _isDetailsSheetOpen = false);
+        }
+      },
 
-    if (changed == true) { // if edited
-      await _loadExpenses(); // refresh
-    } // end if
-  }, // end onTap
+      leading: CircleAvatar(
+        backgroundColor: Colors.blueGrey.withOpacity(0.10),
+        child: Icon(
+          _iconForCategory(exp.category),
+          size: 20,
+          color: Colors.blueGrey[800],
+        ),
+      ),
+      title: Text(
+        exp.category.isNotEmpty ? exp.category : 'Expense',
+        style: const TextStyle(fontWeight: FontWeight.w600),
+      ),
+      subtitle: Padding(
+        padding: const EdgeInsets.only(top: 4.0),
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 6,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Text(
+              _formatDateTime(exp.dateTime),
+              style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+            ),
+            if (_safeText(exp.paymentMethod).isNotEmpty)
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.blueGrey.withOpacity(0.10),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  exp.paymentMethod!,
+                  style: TextStyle(fontSize: 11, color: Colors.grey[800]),
+                ),
+              ),
+            if (_safeText(exp.note).isNotEmpty)
+              Text(
+                exp.note!,
+                style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                overflow: TextOverflow.ellipsis,
+              ),
+          ],
+        ),
+      ),
+      trailing: Text(
+        '${exp.amount.toStringAsFixed(2)} $currency',
+        style: const TextStyle(fontWeight: FontWeight.bold),
+      ),
+    ),
+  ),
+);
 
-  leading: CircleAvatar( // leading icon bubble
-    backgroundColor: Colors.blueGrey.withOpacity(0.10), // soft bg
-    child: Icon( // icon
-      _iconForCategory(exp.category), // icon by category
-      size: 20, // size
-      color: Colors.blueGrey[800], // color
-    ), // end icon
-  ), // end leading
-
-  title: Text( // main title
-    exp.category.isNotEmpty ? exp.category : 'Expense', // title text
-    style: const TextStyle(fontWeight: FontWeight.w600), // style
-  ), // end title
-
-  subtitle: Padding( // compact subtitle
-    padding: const EdgeInsets.only(top: 4.0), // spacing
-    child: Wrap( // inline chips/text
-      spacing: 8, // space
-      runSpacing: 6, // wrap space
-      crossAxisAlignment: WrapCrossAlignment.center, // align
-      children: [ // children
-        Text( // date
-          _formatDateTime(exp.dateTime), // formatted date
-          style: TextStyle(fontSize: 12, color: Colors.grey[700]), // style
-        ), // end date
-        if (_safeText(exp.paymentMethod).isNotEmpty) // payment exists
-          Container( // chip
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), // padding
-            decoration: BoxDecoration( // box
-              color: Colors.blueGrey.withOpacity(0.10), // bg
-              borderRadius: BorderRadius.circular(999), // pill
-            ), // end decoration
-            child: Text( // text
-              exp.paymentMethod!, // method
-              style: TextStyle(fontSize: 11, color: Colors.grey[800]), // style
-            ), // end text
-          ), // end chip
-        if (_safeText(exp.note).isNotEmpty) // note exists
-          Text( // note
-            exp.note!, // note
-            style: TextStyle(fontSize: 12, color: Colors.grey[700]), // style
-            overflow: TextOverflow.ellipsis, // ellipsis
-          ), // end note
-      ], // end children
-    ), // end wrap
-  ), // end subtitle
-
-  trailing: Text( // amount
-    '${exp.amount.toStringAsFixed(2)} $currency', // amount text
-    style: const TextStyle(fontWeight: FontWeight.bold), // style
-  ), // end trailing
-), // end ListTile
-
-                      ),
-                    );
                   },
                 ),
         ),
 
-        // Κουμπί "Add expense"
-        SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _onAddExpensePressed,
-                icon: const Icon(Icons.add),
-                label: const Text('Add expense'),
-              ),
-            ),
-          ),
+// Κουμπί "Add expense"
+if (!_isDetailsSheetOpen)
+  SafeArea(
+    top: false,
+    child: Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          onPressed: _onAddExpensePressed,
+          icon: const Icon(Icons.add),
+          label: const Text('Add expense'),
         ),
+      ),
+    ),
+  ),
+
       ],
     );
   }
