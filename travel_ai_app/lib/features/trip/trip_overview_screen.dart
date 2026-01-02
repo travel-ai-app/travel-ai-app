@@ -13,6 +13,7 @@ import '../expenses/add_expense_demo_screen.dart'; // ή το σωστό path σ
 import 'package:travel_ai_app/presentation/activity_details_bottom_sheet.dart';
 import '../expenses/expense_details_bottom_sheet.dart';
 
+
 /// Οθόνη επισκόπησης για ένα Trip με tabs:
 /// - Overview
 /// - Itinerary
@@ -20,47 +21,95 @@ import '../expenses/expense_details_bottom_sheet.dart';
 class TripOverviewScreen extends StatelessWidget {
   final Trip trip;
 
-  const TripOverviewScreen({
-    super.key,
-    required this.trip,
-  });
+TripOverviewScreen({super.key, required this.trip});
 
-  @override
-  Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 3, // 3 tabs
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(trip.title),
-          bottom: const TabBar(
-            tabs: [
-              Tab(text: 'Overview', icon: Icon(Icons.info_outline)),
-              Tab(text: 'Itinerary', icon: Icon(Icons.map_outlined)),
-              Tab(text: 'Expenses', icon: Icon(Icons.attach_money)),
+
+ // ✅ Βάλε αυτά ΠΑΝΩ στο build(), μέσα στο State του screen (ως fields):
+final GlobalKey<ItineraryTabState> _itineraryKey = GlobalKey<ItineraryTabState>(); // key
+final GlobalKey<_OverviewTabState> _overviewKey = GlobalKey<_OverviewTabState>(); // key
+
+@override
+Widget build(BuildContext context) {
+  return DefaultTabController(
+    length: 3,
+    child: Builder(
+      builder: (context) {
+        final TabController tab = DefaultTabController.of(context); // ✅ safe εδώ
+
+        return Scaffold(
+appBar: AppBar(
+  title: Text(
+    trip.title, // title //
+    maxLines: 1, // single line //
+    overflow: TextOverflow.ellipsis, // ellipsis //
+  ), // title //
+  centerTitle: false, // more modern //
+  elevation: 0, // flatter //
+  scrolledUnderElevation: 0, // no shadow on scroll //
+  bottom: const PreferredSize(
+    preferredSize: Size.fromHeight(56), // stable height //
+    child: Align(
+      alignment: Alignment.centerLeft, // left align //
+      child: TabBar(
+        isScrollable: true, // modern, no squish //
+        tabAlignment: TabAlignment.start, // start //
+        padding: EdgeInsets.symmetric(horizontal: 12), // outer padding //
+        labelPadding: EdgeInsets.symmetric(horizontal: 12), // per tab //
+        tabs: [
+          Tab(text: 'Overview', icon: Icon(Icons.info_outline)), // tab //
+          Tab(text: 'Itinerary', icon: Icon(Icons.map_outlined)), // tab //
+          Tab(text: 'Expenses', icon: Icon(Icons.attach_money)), // tab //
+        ], // tabs //
+      ), // tabbar //
+    ), // align //
+  ), // preferred size //
+),
+
+          body: TabBarView(
+            children: [
+              _OverviewTab(
+                key: _overviewKey,
+                trip: trip,
+                onAddActivityFromNow: (dayPart) async {
+                  tab.animateTo(1); // ✅ go Itinerary
+                  await Future<void>.delayed(const Duration(milliseconds: 150));
+                  await _itineraryKey.currentState
+                      ?.openAddActivityFromNow(dayPart);
+                  await _overviewKey.currentState?.refresh();
+                },
+              ),
+              _ItineraryTab(
+                key: _itineraryKey,
+                trip: trip,
+              ),
+              _ExpensesTab(trip: trip),
             ],
           ),
-        ),
-        body: TabBarView(
-          children: [
-            _OverviewTab(trip: trip),
-            _ItineraryTab(trip: trip),
-            _ExpensesTab(trip: trip),
-          ],
-        ),
-      ),
-    );
-  }
+        );
+      },
+    ),
+  );
+}
+
+
 }
 
 /// TAB 1 – Overview με σύνοψη (expenses + activities + days + budget + smart tip)
 class _OverviewTab extends StatefulWidget {
-  final Trip trip;
+  final Trip trip; // trip //
+  final Future<void> Function(DayPart dayPart) onAddActivityFromNow; // callback //
 
-  const _OverviewTab({required this.trip});
+  const _OverviewTab({
+    super.key, // key //
+    required this.trip, // trip //
+    required this.onAddActivityFromNow, // callback //
+  });
 
   @override
   State<_OverviewTab> createState() => _OverviewTabState();
 }
+
+
 
 
 class _OverviewTabState extends State<_OverviewTab> {
@@ -74,6 +123,11 @@ class _OverviewTabState extends State<_OverviewTab> {
     Map<String, double> _totalsByDay = <String, double>{}; // Totals ανά ημέρα
   double _todayTotal = 0.0; // Σύνολο σήμερα
   double _yesterdayTotal = 0.0; // Σύνολο χθες
+
+Future<void> refresh() async {
+  await _loadSummary();
+}
+
 
 
   @override
@@ -130,11 +184,13 @@ Future<void> _loadSummary() async {
     });
     debugPrint('Overview _loadSummary error: $e');
   } finally {
-    if (!mounted) return;
+  if (mounted) {
     setState(() {
       _loading = false;
     });
   }
+}
+
 }
 
 
@@ -296,15 +352,43 @@ Future<void> _loadSummary() async {
         padding: const EdgeInsets.all(16.0),
         children: [
 
-          // ✅ TripSummaryCard (πριν το Main Trip card)
-          if (!_loading)
-            _TripSummaryCard(
-              trip: trip,
-              totalExpenses: _totalExpenses,
-              totalActivities: _activityCount,
-            ),
+// ✅ TripSummaryCard
+if (!_loading)
+  _TripSummaryCard(
+    key: const ValueKey('trip_summary_card'), // ✅ πρόσθεσε αυτό
+    trip: trip,
+    totalExpenses: _totalExpenses,
+    totalActivities: _activityCount,
+  ),
 
-          const SizedBox(height: 12),
+const SizedBox(height: 12),
+
+// ✅ NOW – What should I do now?
+if (!_loading)
+  _NowSuggestionCard(
+    trip: trip,
+    totalExpenses: _totalExpenses,
+    todayTotal: _todayTotal,
+    yesterdayTotal: _yesterdayTotal,
+    activityCount: _activityCount,
+    currency: currency,
+onAddActivity: () async {
+  final int hour = DateTime.now().hour;
+
+  final DayPart part = hour < 12
+      ? DayPart.morning
+      : hour < 18
+          ? DayPart.afternoon
+          : DayPart.evening;
+
+  await widget.onAddActivityFromNow(part);
+},
+
+
+  ),
+
+const SizedBox(height: 12),
+
 
 
           // 🔹 Main Trip card
@@ -351,7 +435,7 @@ Future<void> _loadSummary() async {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                               decoration: BoxDecoration(
-                                color: Colors.blueGrey.withOpacity(0.08),
+                                color: Colors.blueGrey.withValues(alpha: 0.08),
                                 borderRadius: BorderRadius.circular(999),
                               ),
                               child: Text(
@@ -461,7 +545,7 @@ Future<void> _loadSummary() async {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),
-            color: Colors.blueGrey.withOpacity(0.06),
+            color: Colors.blueGrey.withValues(alpha: 0.06),
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: Row(
@@ -728,7 +812,7 @@ Future<void> _loadSummary() async {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
-              color: Colors.green.withOpacity(0.06),
+              color: Colors.green.withValues(alpha: 0.06),
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Row(
@@ -825,23 +909,181 @@ class _SummaryCard extends StatelessWidget {
   }
 }
 
+class _NowSuggestionCard extends StatelessWidget {
+  final Trip trip;
+  final double totalExpenses;
+  final double todayTotal;
+  final double yesterdayTotal;
+  final int activityCount;
+  final String currency;
+  final VoidCallback onAddActivity;
+
+  const _NowSuggestionCard({
+    required this.trip,
+    required this.totalExpenses,
+    required this.todayTotal,
+    required this.yesterdayTotal,
+    required this.activityCount,
+    required this.currency,
+    required this.onAddActivity,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final hour = now.hour;
+
+    final String dayPart = hour < 12
+        ? 'Morning'
+        : hour < 18
+            ? 'Afternoon'
+            : 'Evening';
+
+    final String title;
+    final String subtitle;
+    final IconData icon;
+
+    if (activityCount == 0) {
+      icon = Icons.auto_awesome;
+      title = 'Plan your next move';
+      subtitle = '$dayPart • Add your first activity to build your itinerary.';
+    } else if (todayTotal > yesterdayTotal + 20) {
+      icon = Icons.trending_up;
+      title = 'Spending is higher today';
+      subtitle =
+          '$dayPart • You’re spending more today. Consider cheaper options.';
+    } else if (hour >= 18) {
+      icon = Icons.nightlife;
+      title = 'Evening idea';
+      subtitle = 'Evening • Dinner + something chill nearby.';
+    } else if (hour >= 12) {
+      icon = Icons.explore;
+      title = 'Afternoon idea';
+      subtitle = 'Afternoon • Add a sightseeing spot or a short walk.';
+    } else {
+      icon = Icons.local_cafe;
+      title = 'Morning idea';
+      subtitle = 'Morning • Coffee + a quick highlight activity.';
+    }
+
+    return Card(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: Colors.blueGrey.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(icon),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'NOW',
+                    style: TextStyle(
+                      fontSize: 11,
+                      letterSpacing: 1.2,
+                      color: Colors.grey[700],
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey[700],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+Expanded(
+  child: ElevatedButton(
+    onPressed: onAddActivity, // ✅ ΕΔΩ ΜΟΝΟ αυτό
+    child: const Text('Add to itinerary'),
+  ),
+),
+
+
+                      const SizedBox(width: 10),
+                      OutlinedButton(
+                        onPressed: () {},
+                        child: const Text('More ideas'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+
+
 /// TAB 2 – Itinerary με πραγματικά Activities από InMemoryActivityRepository.
 class _ItineraryTab extends StatefulWidget {
   final Trip trip;
 
-  const _ItineraryTab({required this.trip});
+const _ItineraryTab({super.key, required this.trip});
+
 
   @override
-  State<_ItineraryTab> createState() => _ItineraryTabState();
+  State<_ItineraryTab> createState() => ItineraryTabState();
 }
 
-class _ItineraryTabState extends State<_ItineraryTab>
+class ItineraryTabState extends State<_ItineraryTab>
     with AutomaticKeepAliveClientMixin {
   final InMemoryActivityRepository _activityRepo =
       InMemoryActivityRepository();
 
-  /// Map<"yyyy-MM-dd", Map<DayPart, List<Activity>>>
+  /// `Map<"yyyy-MM-dd", Map<DayPart, List<Activity>>>`
   final Map<String, Map<DayPart, List<Activity>>> _activitiesByDay = {};
+
+Future<void> openAddActivityFromNow(DayPart dayPart) async {
+  final Trip trip = widget.trip;
+
+  DateTime d0(DateTime d) => DateTime(d.year, d.month, d.day);
+
+  final DateTime start = d0(trip.startDate);
+  final DateTime end = d0(trip.endDate);
+
+ DateTime initial = start; // ✅ default = trip start date
+
+
+  if (initial.isBefore(start)) initial = start; // clamp μέσα στο trip
+  if (initial.isAfter(end)) initial = end;       // clamp μέσα στο trip
+
+  await _onAddActivityPressed(initial, dayPart); // ✅ ανοίγει sheet με σωστή ημερομηνία
+}
+
+
+
+
 
   @override
   bool get wantKeepAlive => true;
@@ -877,6 +1119,8 @@ class _ItineraryTabState extends State<_ItineraryTab>
         ..addAll(grouped);
     });
   }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -955,157 +1199,173 @@ class _ItineraryTabState extends State<_ItineraryTab>
     );
   }
 
-  Widget _buildDayPartSection({
-    required BuildContext context,
-    required DateTime date,
-    required String dayKey,
-    required DayPart dayPart,
-    required String label,
-    required IconData icon,
-  }) {
-    final list = _activitiesByDay[dayKey]?[dayPart] ?? <Activity>[];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(icon, size: 18),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const Spacer(),
-            IconButton(
-              icon: const Icon(Icons.add),
-              tooltip: 'Add activity',
-              onPressed: () => _onAddActivityPressed(date, dayPart),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        if (list.isEmpty)
-          const Padding(
-            padding: EdgeInsets.only(left: 26.0),
-            child: Text(
-              'No activities yet',
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.grey,
-              ),
-            ),
-          )
-        else
-          Padding(
-            padding: const EdgeInsets.only(left: 26.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: list.map((activity) {
-                final cost = activity.estimatedCost;
-                final currency = activity.currencyCode ?? '';
-                final details = <String>[];
-
-                if (activity.category != null &&
-                    activity.category!.isNotEmpty) {
-                  details.add(activity.category!);
-                }
-                if (cost != null && cost > 0) {
-                  details.add(
-                      '${cost.toStringAsFixed(0)} $currency');
-                }
-
-                return Dismissible(
-                  key: ValueKey(activity.id),
-                  direction: DismissDirection.endToStart,
-                  background: Container(
-                    alignment: Alignment.centerRight,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16),
-                    color: Colors.red,
-                    child: const Icon(
-                      Icons.delete,
-                      color: Colors.white,
-                    ),
-                  ),
-                  confirmDismiss: (direction) async {
-                    return _confirmDeleteActivity(context);
-                  },
-                  onDismissed: (_) async {
-                    await _activityRepo.deleteActivity(activity.id);
-                    await _loadActivities();
-                  },
-child: InkWell(
-  onTap: () async {
-    final action = await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (_) => ActivityDetailsBottomSheet(activity: activity),
-    );
-
-if (action == 'edit') {
-  await _onAddActivityPressed(date, dayPart, existing: activity);
-} else if (action == 'delete') {
-      final ok = await _confirmDeleteActivity(context);
-      if (ok == true) {
-        await _activityRepo.deleteActivity(activity.id);
-        await _loadActivities();
-      }
-    }
-  },
-  child: Padding(
-    padding: const EdgeInsets.only(bottom: 4.0),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('• '),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                activity.title,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              if (activity.description != null &&
-                  activity.description!.isNotEmpty)
-                Text(
-                  activity.description!,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey,
-                  ),
-                ),
-              if (details.isNotEmpty)
-                Text(
-                  details.join(' • '),
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey,
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ],
-    ),
-  ),
-),
-
-                );
-              }).toList(),
-            ),
-          ),
-      ],
+  // ✅ ΕΔΩ ΤΟ ΒΑΖΕΙΣ
+  Future<void> _deleteActivityAndRefresh(String id) async {
+    await _activityRepo.deleteActivity(id);
+    await _loadActivities();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Activity deleted')),
     );
   }
+
+
+ Widget _buildDayPartSection({
+  required BuildContext context,
+  required DateTime date,
+  required String dayKey,
+  required DayPart dayPart,
+  required String label,
+  required IconData icon,
+}) {
+  final list = _activitiesByDay[dayKey]?[dayPart] ?? <Activity>[]; // list //
+
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start, // start //
+    children: [
+      Row(
+        children: [
+          Icon(icon, size: 18), // icon //
+          const SizedBox(width: 8), // gap //
+          Text(
+            label, // label //
+            style: const TextStyle(
+              fontSize: 14, // size //
+              fontWeight: FontWeight.w500, // weight //
+            ), // style //
+          ), // text //
+          const Spacer(), // spacer //
+          IconButton(
+            icon: const Icon(Icons.add), // add //
+            tooltip: 'Add activity', // tooltip //
+            onPressed: () => _onAddActivityPressed(date, dayPart), // add //
+          ), // button //
+        ], // children //
+      ), // row //
+      const SizedBox(height: 8), // consistent spacing //
+      if (list.isEmpty)
+        const Padding(
+          padding: EdgeInsets.only(left: 26), // icon(18)+gap(8) //
+          child: Text(
+            'No activities yet', // empty //
+            style: TextStyle(
+              fontSize: 13, // size //
+              color: Colors.grey, // color //
+            ), // style //
+          ), // text //
+        ) // empty //
+      else
+        Padding(
+          padding: const EdgeInsets.only(left: 26), // icon(18)+gap(8) //
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start, // start //
+            children: list.map((activity) {
+              final cost = activity.estimatedCost; // cost //
+              final currency = activity.currencyCode ?? ''; // currency //
+              final details = <String>[]; // details //
+
+              if (activity.category != null && activity.category!.isNotEmpty) {
+                details.add(activity.category!); // add category //
+              }
+              if (cost != null && cost > 0) {
+                details.add('${cost.toStringAsFixed(0)} $currency'); // add cost //
+              }
+
+              return Dismissible(
+                key: ValueKey(activity.id), // key //
+                direction: DismissDirection.endToStart, // swipe delete //
+                background: Container(
+                  alignment: Alignment.centerRight, // right //
+                  padding: const EdgeInsets.symmetric(horizontal: 16), // pad //
+                  color: Colors.red, // bg //
+                  child: const Icon(
+                    Icons.delete, // icon //
+                    color: Colors.white, // color //
+                  ), // icon //
+                ), // bg //
+                confirmDismiss: (direction) async {
+                  return _confirmDeleteActivity(context); // confirm //
+                }, // confirm //
+                onDismissed: (_) async {
+                  await _deleteActivityAndRefresh(activity.id); // unified delete //
+                }, // dismissed //
+                child: InkWell(
+                  onTap: () async {
+                    final ActivityDetailsAction? action =
+                        await showModalBottomSheet<ActivityDetailsAction>(
+                      context: context, // ctx //
+                      isScrollControlled: true, // full height if needed //
+                      showDragHandle: true, // handle //
+                      useSafeArea: true, // safe area //
+                      shape: const RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.vertical(top: Radius.circular(20)), // radius //
+                      ), // shape //
+                      builder: (_) =>
+                          ActivityDetailsBottomSheet(activity: activity), // sheet //
+                    ); // await //
+
+                    if (!context.mounted) return; // safety //
+
+                    if (action == ActivityDetailsAction.edit) {
+                      await _onAddActivityPressed(date, dayPart,
+                          existing: activity); // edit //
+                    } else if (action == ActivityDetailsAction.delete) {
+                      await _deleteActivityAndRefresh(activity.id); // unified delete //
+                    } // end action //
+                  }, // onTap //
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 8), // consistent //
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start, // start //
+                      children: [
+                        const Text('• '), // bullet //
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start, // start //
+                            children: [
+                              Text(
+                                activity.title, // title //
+                                style: const TextStyle(
+                                  fontSize: 14, // size //
+                                  fontWeight: FontWeight.w500, // weight //
+                                ), // style //
+                              ), // title //
+                              if (activity.description != null &&
+                                  activity.description!.isNotEmpty)
+                                Text(
+                                  activity.description!, // desc //
+                                  style: const TextStyle(
+                                    fontSize: 13, // size //
+                                    color: Colors.grey, // color //
+                                  ), // style //
+                                ), // desc //
+                              if (details.isNotEmpty)
+                                Text(
+                                  details.join(' • '), // details //
+                                  style: const TextStyle(
+                                    fontSize: 12, // size //
+                                    color: Colors.grey, // color //
+                                  ), // style //
+                                ), // details //
+                            ], // children //
+                          ), // column //
+                        ), // expanded //
+                      ], // children //
+                    ), // row //
+                  ), // padding //
+                ), // inkwell //
+              ); // dismissible //
+            }).toList(), // map -> list //
+          ), // column //
+        ), // padding //
+    ], // children //
+  ); // column //
+} // end section //
+
+
+
+
 
 Future<void> _onAddActivityPressed(
   DateTime date,
@@ -1116,11 +1376,17 @@ Future<void> _onAddActivityPressed(
     context: context,
     isScrollControlled: true,
     builder: (ctx) {
-      return _AddActivitySheet(
-        date: date,
-        dayPart: existing?.dayPart ?? dayPart,
-        currencyCode: widget.trip.currencyCode,
-      );
+return _AddActivitySheet(
+  date: date, // ✅
+  dayPart: dayPart, // ✅
+  currencyCode: widget.trip.currencyCode, // ✅
+  minDate: widget.trip.startDate, // ✅
+  maxDate: widget.trip.endDate, // ✅
+  existing: existing, // ✅ ΠΡΟΣΘΗΚΗ: για edit prefill //
+);
+
+
+
     },
   );
 
@@ -1205,7 +1471,7 @@ class _ExpensesTab extends StatefulWidget {
 class _ExpensesTabState extends State<_ExpensesTab>
     with AutomaticKeepAliveClientMixin {
   final InMemoryExpenseRepository _expenseRepo = InMemoryExpenseRepository();
-bool _isDetailsSheetOpen = false; // controls Add expense overlay
+
   List<Expense> _expenses = <Expense>[];
   double _total = 0.0; // Σύνολο εξόδων για το trip
   bool _sortNewestFirst = true; // sort flag (true=newest first) //
@@ -1221,6 +1487,17 @@ String? _categoryFilter; // null = All categories //
     super.initState();
     _loadExpenses();
   }
+
+Future<void> _deleteExpenseAndRefresh(String id) async { // helper //
+  await _expenseRepo.deleteExpense(id); // delete //
+  await _loadExpenses(); // refresh //
+  if (!mounted) return; // safety //
+  ScaffoldMessenger.of(context).showSnackBar( // feedback //
+    const SnackBar(content: Text('Expense deleted')), // msg //
+  ); // snackbar //
+} // end helper //
+
+
 
 Future<void> _loadExpenses() async { // load expenses //
   final List<Expense> list = await _expenseRepo.getExpensesForTrip(widget.trip); // fetch //
@@ -1252,11 +1529,14 @@ Future<void> _loadExpenses() async { // load expenses //
     super.build(context); // σημαντικό λόγω keepAlive
     final currency = widget.trip.currencyCode;
 
-    return Column(
-      children: [
+return Padding(
+  padding: const EdgeInsets.all(16), // unified padding //
+  child: Column(
+    children: [
         // Σύνολο εξόδων
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+Padding(
+  padding: const EdgeInsets.only(bottom: 8), // unified //
+
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -1293,8 +1573,9 @@ Column( // left header
         ),
         const Divider(height: 1),
 
-Padding( // controls wrapper //
-  padding: const EdgeInsets.fromLTRB(16, 10, 16, 10), // padding //
+Padding(
+  padding: const EdgeInsets.symmetric(vertical: 10), // unified //
+
   child: Row( // row //
     children: [ // children //
       // ✅ Sort chip //
@@ -1332,7 +1613,8 @@ Padding( // controls wrapper //
           child: _expenses.isEmpty
 ? Center( // empty state
     child: Padding( // padding
-      padding: const EdgeInsets.all(24.0), // space
+      padding: const EdgeInsets.symmetric(vertical: 24), // unified //
+
       child: Column( // column
         mainAxisSize: MainAxisSize.min, // compact
         children: [ // children
@@ -1360,16 +1642,6 @@ Padding( // controls wrapper //
             textAlign: TextAlign.center, // align
           ), // end text
 
-const SizedBox(height: 16),
-SizedBox(
-  width: double.infinity,
-  child: ElevatedButton.icon(
-    onPressed: _onAddExpensePressed,
-    icon: const Icon(Icons.add),
-    label: const Text('Add expense'),
-  ),
-),
-
 
         ], // end children
       ), // end column
@@ -1377,7 +1649,8 @@ SizedBox(
   ) // end center
 
               : ListView.builder(
-                  padding: const EdgeInsets.all(16),
+  padding: EdgeInsets.zero, // unified //
+
                   itemCount: _expenses.length,
                   itemBuilder: (context, index) {
                     final exp = _expenses[index];
@@ -1439,87 +1712,58 @@ return Dismissible(
   },
 
   // ✅ Εδώ θα μπει μόνο όταν έγινε πραγματικό dismiss (δηλ. delete)
-  onDismissed: (direction) async {
-    if (direction == DismissDirection.endToStart) {
-      await _expenseRepo.deleteExpense(exp.id);
-      await _loadExpenses();
-    }
-  },
+onDismissed: (direction) async {
+  if (direction == DismissDirection.endToStart) {
+    await _deleteExpenseAndRefresh(exp.id); // unified delete //
+  } // end //
+},
+
+
 
   // Το παιδί σου μένει όπως είναι (tap = details sheet)
   child: Card(
     margin: const EdgeInsets.only(bottom: 8),
     child: ListTile(
-      onTap: () async {
-        setState(() => _isDetailsSheetOpen = true);
+     onTap: () async {
+await showModalBottomSheet(
+  context: context, // ctx //
+  isScrollControlled: true, // full height if needed //
+  showDragHandle: true, // handle //
+  useSafeArea: true, // safe area //
+  shape: const RoundedRectangleBorder( // rounded top //
+    borderRadius: BorderRadius.vertical(top: Radius.circular(20)), // radius //
+  ), // shape //
+  builder: (_) => ExpenseDetailsBottomSheet(
 
-        await showModalBottomSheet(
-          context: context,
-          isScrollControlled: true,
-          backgroundColor: Colors.transparent,
-          builder: (_) {
-            return Padding(
-              padding: EdgeInsets.only(
-                left: 12,
-                right: 12,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 12,
-              ),
-              child: Material(
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(24)),
-                clipBehavior: Clip.antiAlias,
-                elevation: 12,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const SizedBox(height: 12),
-                    Center(
-                      child: Container(
-                        width: 40,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(999),
-                          color: Colors.black26,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    ExpenseDetailsBottomSheet(
-                      expense: exp,
-                      onEdit: () async {
-                        final bool? changed =
-                            await Navigator.of(context).push<bool>(
-                          MaterialPageRoute<bool>(
-                            builder: (_) => AddExpenseDemoScreen(
-                              trip: widget.trip,
-                              existingExpense: exp,
-                            ),
-                          ),
-                        );
-
-                        if (changed == true) {
-                          await _loadExpenses();
-                        }
-                      },
-                      onDelete: () async {
-                        await _expenseRepo.deleteExpense(exp.id);
-                        await _loadExpenses();
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
+      expense: exp,
+      onEdit: () async {
+        final changed = await Navigator.of(context).push<bool>(
+          MaterialPageRoute<bool>(
+            builder: (_) => AddExpenseDemoScreen(
+              trip: widget.trip,
+              existingExpense: exp,
+            ),
+          ),
         );
 
-        if (mounted) {
-          setState(() => _isDetailsSheetOpen = false);
+        if (changed == true) {
+          await _loadExpenses();
         }
       },
+onDelete: () async {
+  await _deleteExpenseAndRefresh(exp.id); // unified delete //
+},
+
+
+    ),
+  );
+
+  if (!context.mounted) return;
+},
+
 
       leading: CircleAvatar(
-        backgroundColor: Colors.blueGrey.withOpacity(0.10),
+        backgroundColor: Colors.blueGrey.withValues(alpha: 0.10),
         child: Icon(
           _iconForCategory(exp.category),
           size: 20,
@@ -1530,39 +1774,52 @@ return Dismissible(
         exp.category.isNotEmpty ? exp.category : 'Expense',
         style: const TextStyle(fontWeight: FontWeight.w600),
       ),
-      subtitle: Padding(
-        padding: const EdgeInsets.only(top: 4.0),
-        child: Wrap(
-          spacing: 8,
-          runSpacing: 6,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            Text(
-              _formatDateTime(exp.dateTime),
-              style: TextStyle(fontSize: 12, color: Colors.grey[700]),
-            ),
-            if (_safeText(exp.paymentMethod).isNotEmpty)
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: Colors.blueGrey.withOpacity(0.10),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  exp.paymentMethod!,
-                  style: TextStyle(fontSize: 11, color: Colors.grey[800]),
-                ),
-              ),
-            if (_safeText(exp.note).isNotEmpty)
-              Text(
-                exp.note!,
-                style: TextStyle(fontSize: 12, color: Colors.grey[700]),
-                overflow: TextOverflow.ellipsis,
-              ),
-          ],
-        ),
-      ),
+subtitle: Padding(
+  padding: const EdgeInsets.only(top: 6), // spacing //
+  child: Column(
+    crossAxisAlignment: CrossAxisAlignment.start, // start //
+    children: [
+      // meta row: date + payment chip
+      Row(
+        children: [
+          Expanded(
+            child: Text(
+              _formatDateTime(exp.dateTime), // date //
+              style: TextStyle(fontSize: 12, color: Colors.grey[700]), // style //
+              overflow: TextOverflow.ellipsis, // safe //
+            ), // text //
+          ), // expanded //
+          if (_safeText(exp.paymentMethod).isNotEmpty) ...[
+            const SizedBox(width: 8), // gap //
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), // chip pad //
+              decoration: BoxDecoration(
+                color: Colors.blueGrey.withValues(alpha: 0.10), // bg //
+                borderRadius: BorderRadius.circular(999), // pill //
+              ), // deco //
+              child: Text(
+                exp.paymentMethod!, // method //
+                style: TextStyle(fontSize: 11, color: Colors.grey[800]), // style //
+              ), // text //
+            ), // chip //
+          ], // if //
+        ], // children //
+      ), // row //
+
+      // note row (optional)
+      if (_safeText(exp.note).isNotEmpty) ...[
+        const SizedBox(height: 4), // gap //
+        Text(
+          exp.note!, // note //
+          style: TextStyle(fontSize: 12, color: Colors.grey[700]), // style //
+          maxLines: 1, // one line //
+          overflow: TextOverflow.ellipsis, // ellipsis //
+        ), // text //
+      ], // if //
+    ], // children //
+  ), // column //
+), // padding //
+
       trailing: Text(
         '${exp.amount.toStringAsFixed(2)} $currency',
         style: const TextStyle(fontWeight: FontWeight.bold),
@@ -1576,11 +1833,11 @@ return Dismissible(
         ),
 
 // Κουμπί "Add expense"
-if (!_isDetailsSheetOpen)
   SafeArea(
     top: false,
     child: Padding(
-      padding: const EdgeInsets.all(16.0),
+  padding: const EdgeInsets.only(top: 12), // unified //
+
       child: SizedBox(
         width: double.infinity,
         child: ElevatedButton.icon(
@@ -1593,8 +1850,10 @@ if (!_isDetailsSheetOpen)
   ),
 
       ],
-    );
-  }
+    ),
+  );
+}
+
 
  Future<void> _onAddExpensePressed() async {
   final result = await showModalBottomSheet<_NewExpenseData>(
@@ -1787,7 +2046,7 @@ class _AddExpenseSheetState extends State<_AddExpenseSheet> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: _selectedPaymentMethod,
+                  initialValue: _selectedPaymentMethod,
                   decoration: const InputDecoration(
                     labelText: 'Payment method (optional)',
                   ),
@@ -1869,16 +2128,24 @@ class _NewActivityData {
   });
 }
 
-/// Bottom sheet για προσθήκη Activity σε συγκεκριμένη μέρα + day part.
+/// Bottom sheet για προσθήκη/επεξεργασία Activity σε συγκεκριμένη μέρα + day part.
 class _AddActivitySheet extends StatefulWidget {
-  final DateTime date;
-  final DayPart dayPart;
-  final String currencyCode;
+  final DateTime date; // initial date //
+  final DayPart dayPart; // day part //
+  final String currencyCode; // currency //
+
+  final DateTime minDate; // ✅ trip start //
+  final DateTime maxDate; // ✅ trip end //
+
+  final Activity? existing; // ✅ if not null => EDIT mode //
 
   const _AddActivitySheet({
-    required this.date,
-    required this.dayPart,
-    required this.currencyCode,
+    required this.date, // required //
+    required this.dayPart, // required //
+    required this.currencyCode, // required //
+    required this.minDate, // required //
+    required this.maxDate, // required //
+    this.existing, // ✅ optional //
   });
 
   @override
@@ -1886,24 +2153,52 @@ class _AddActivitySheet extends StatefulWidget {
 }
 
 class _AddActivitySheetState extends State<_AddActivitySheet> {
-  final _formKey = GlobalKey<FormState>();
-  final _titleController = TextEditingController();
-  final _descriptionController = TextEditingController();
-  final _costController = TextEditingController();
-  final _categoryController = TextEditingController();
+  final _formKey = GlobalKey<FormState>(); // form key //
+  final _titleController = TextEditingController(); // title //
+  final _descriptionController = TextEditingController(); // description //
+  final _costController = TextEditingController(); // cost //
+  final _categoryController = TextEditingController(); // category //
+
+  late DateTime _selectedDate; // editable date //
+
+  @override
+  void initState() {
+    super.initState();
+
+    final existing = widget.existing; // existing //
+
+    // ✅ date prefill (existing.date OR widget.date) + strip time //
+    final baseDate = existing?.date ?? widget.date; // base //
+    _selectedDate = DateTime(baseDate.year, baseDate.month, baseDate.day); // strip //
+
+    // ✅ controllers prefill (EDIT mode) //
+    if (existing != null) {
+      _titleController.text = existing.title; // title //
+      _descriptionController.text = (existing.description ?? ''); // desc //
+      _categoryController.text = (existing.category ?? ''); // category //
+
+      final cost = existing.estimatedCost; // cost //
+      if (cost != null && cost > 0) {
+        // keep it clean (no trailing .0 for whole numbers) //
+        final isInt = cost % 1 == 0; // whole? //
+        _costController.text = isInt ? cost.toStringAsFixed(0) : cost.toString(); // text //
+      }
+    }
+  }
 
   @override
   void dispose() {
-    _titleController.dispose();
-    _descriptionController.dispose();
-    _costController.dispose();
-    _categoryController.dispose();
-    super.dispose();
+    _titleController.dispose(); // dispose //
+    _descriptionController.dispose(); // dispose //
+    _costController.dispose(); // dispose //
+    _categoryController.dispose(); // dispose //
+    super.dispose(); // super //
   }
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom; // keyboard //
+    final isEdit = widget.existing != null; // edit flag //
 
     String labelForDayPart(DayPart dayPart) {
       switch (dayPart) {
@@ -1916,41 +2211,48 @@ class _AddActivitySheetState extends State<_AddActivitySheet> {
       }
     }
 
-    final dayPartLabel = labelForDayPart(widget.dayPart);
+    final dayPartLabel = labelForDayPart(widget.dayPart); // label //
 
     return Padding(
-      padding: EdgeInsets.only(bottom: bottomInset),
+      padding: EdgeInsets.only(bottom: bottomInset), // keyboard space //
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(16.0), // padding //
         child: Form(
-          key: _formKey,
+          key: _formKey, // key //
           child: SingleChildScrollView(
             child: Column(
-              mainAxisSize: MainAxisSize.min,
+              mainAxisSize: MainAxisSize.min, // min //
               children: [
                 Text(
-                  'Add activity – $dayPartLabel',
+                  isEdit ? 'Edit activity – $dayPartLabel' : 'Add activity – $dayPartLabel', // header //
                   style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 18, // size //
+                    fontWeight: FontWeight.bold, // weight //
                   ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'Date: ${widget.date.day.toString().padLeft(2, '0')}/'
-                  '${widget.date.month.toString().padLeft(2, '0')}/'
-                  '${widget.date.year}',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey,
-                  ),
+                const SizedBox(height: 8), // gap //
+
+                Row(
+                  children: [
+                    Text(
+                      'Date: ${_fmtDate(_selectedDate)}', // date //
+                      style: const TextStyle(fontSize: 14, color: Colors.grey), // style //
+                    ),
+                    const Spacer(), // spacer //
+                    TextButton.icon(
+                      onPressed: _pickDate, // pick //
+                      icon: const Icon(Icons.calendar_today, size: 16), // icon //
+                      label: const Text('Change'), // label //
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 8), // gap //
+
                 TextFormField(
-                  controller: _titleController,
+                  controller: _titleController, // controller //
                   decoration: const InputDecoration(
-                    labelText: 'Title',
-                    hintText: 'e.g. Big Buddha, Island hopping, Night market...',
+                    labelText: 'Title', // label //
+                    hintText: 'e.g. Big Buddha, Island hopping, Night market...', // hint //
                   ),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
@@ -1959,40 +2261,41 @@ class _AddActivitySheetState extends State<_AddActivitySheet> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 12), // gap //
+
                 TextFormField(
-                  controller: _descriptionController,
+                  controller: _descriptionController, // controller //
                   decoration: const InputDecoration(
-                    labelText: 'Description (optional)',
-                    hintText: 'Short notes about the activity',
+                    labelText: 'Description (optional)', // label //
+                    hintText: 'Short notes about the activity', // hint //
                   ),
-                  maxLines: 2,
+                  maxLines: 2, // lines //
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 12), // gap //
+
                 TextFormField(
-                  controller: _categoryController,
+                  controller: _categoryController, // controller //
                   decoration: const InputDecoration(
-                    labelText: 'Category (optional)',
-                    hintText: 'e.g. Beach, Food, Culture...',
+                    labelText: 'Category (optional)', // label //
+                    hintText: 'e.g. Beach, Food, Culture...', // hint //
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 12), // gap //
+
                 TextFormField(
-                  controller: _costController,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
+                  controller: _costController, // controller //
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true), // keyboard //
                   decoration: InputDecoration(
-                    labelText:
-                        'Estimated cost (${widget.currencyCode}) (optional)',
+                    labelText: 'Estimated cost (${widget.currencyCode}) (optional)', // label //
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 16), // gap //
+
                 Align(
-                  alignment: Alignment.centerRight,
+                  alignment: Alignment.centerRight, // right //
                   child: ElevatedButton(
-                    onPressed: _onSavePressed,
-                    child: const Text('Save'),
+                    onPressed: _onSavePressed, // save //
+                    child: Text(isEdit ? 'Update' : 'Save'), // label //
                   ),
                 ),
               ],
@@ -2003,36 +2306,54 @@ class _AddActivitySheetState extends State<_AddActivitySheet> {
     );
   }
 
+  String _fmtDate(DateTime d) {
+    return '${d.day.toString().padLeft(2, '0')}/'
+        '${d.month.toString().padLeft(2, '0')}/'
+        '${d.year}';
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context, // ctx //
+      initialDate: _selectedDate, // initial //
+      firstDate: DateTime(widget.minDate.year, widget.minDate.month, widget.minDate.day), // min //
+      lastDate: DateTime(widget.maxDate.year, widget.maxDate.month, widget.maxDate.day), // max //
+    );
+
+    if (picked == null) return; // cancel //
+    if (!mounted) return; // safety //
+
+    setState(() {
+      _selectedDate = DateTime(picked.year, picked.month, picked.day); // strip //
+    });
+  }
+
   void _onSavePressed() {
-    final valid = _formKey.currentState?.validate() ?? false;
-    if (!valid) return;
+    final valid = _formKey.currentState?.validate() ?? false; // validate //
+    if (!valid) return; // stop //
 
-    final title = _titleController.text.trim();
-    final desc = _descriptionController.text.trim();
-    final category = _categoryController.text.trim();
-    final costText = _costController.text.trim();
+    final title = _titleController.text.trim(); // title //
+    final desc = _descriptionController.text.trim(); // desc //
+    final category = _categoryController.text.trim(); // category //
+    final costText = _costController.text.trim(); // cost //
 
-    double? estimatedCost;
+    double? estimatedCost; // parsed //
     if (costText.isNotEmpty) {
-      estimatedCost =
-          double.tryParse(costText.replaceAll(',', '.')) ?? 0.0;
+      estimatedCost = double.tryParse(costText.replaceAll(',', '.')); // parse //
     }
 
     final data = _NewActivityData(
-      title: title,
-      description: desc.isEmpty ? null : desc,
-      date: widget.date,
-      estimatedCost: estimatedCost,
-      category: category.isEmpty ? null : category,
+      title: title, // title //
+      description: desc.isEmpty ? null : desc, // desc //
+      date: _selectedDate, // date //
+      estimatedCost: estimatedCost, // cost //
+      category: category.isEmpty ? null : category, // category //
     );
 
-    Navigator.of(context).pop(data);
+    Navigator.of(context).pop(data); // return //
   }
-
-
-
-  
 }
+
 
 /// Κάρτα σύνοψης για το ταξίδι στο Overview tab.
 /// ΠΡΟΣΩΡΙΝΑ: θα την φτιάξουμε με placeholders.
@@ -2074,7 +2395,7 @@ class _TripSummaryCard extends StatelessWidget {
             Text(
               trip.destination,
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.textTheme.bodyMedium?.color?.withOpacity(0.7),
+                color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.7),
               ),
             ),
             const SizedBox(height: 12),
@@ -2110,7 +2431,7 @@ class _TripSummaryCard extends StatelessWidget {
                       Text(
                         'Total spent',
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.textTheme.bodySmall?.color?.withOpacity(0.7),
+                          color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -2131,7 +2452,7 @@ class _TripSummaryCard extends StatelessWidget {
                       Text(
                         'Activities',
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.textTheme.bodySmall?.color?.withOpacity(0.7),
+                          color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -2154,7 +2475,7 @@ class _TripSummaryCard extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withOpacity(0.05),
+                color: theme.colorScheme.primary.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(

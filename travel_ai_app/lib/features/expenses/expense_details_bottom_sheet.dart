@@ -27,137 +27,142 @@ class _ExpenseDetailsBottomSheetState extends State<ExpenseDetailsBottomSheet> {
     final expense = widget.expense;
 
     return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+  child: SingleChildScrollView(
+    padding: EdgeInsets.only(
+      left: 16, // left //
+      right: 16, // right //
+      top: 16, // top //
+      bottom: 16 + MediaQuery.of(context).viewInsets.bottom, // keyboard safe //
+    ), // padding //
+    child: Column(
+      mainAxisSize: MainAxisSize.min, // fit //
+      crossAxisAlignment: CrossAxisAlignment.start, // start //
+      children: [
+        // Header
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween, // spaced //
           children: [
-            // Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Expense Details',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: _isDeleting ? null : () => Navigator.pop(context),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
+            const Text(
+              'Expense Details', // title //
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold), // style //
+            ), // title //
+            IconButton(
+              icon: const Icon(Icons.close), // close //
+              onPressed: _isDeleting ? null : () => Navigator.pop(context), // disable while deleting //
+            ), // icon button //
+          ], // children //
+        ), // row //
+        const SizedBox(height: 16), // gap //
 
-            // Amount (prominent)
-            Text(
-              '${expense.amount.toStringAsFixed(2)} ${expense.currencyCode}',
-              style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
+        // Amount (prominent)
+        Text(
+          '${expense.amount.toStringAsFixed(2)} ${expense.currencyCode}', // amount + currency //
+          style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold), // style //
+        ), // amount //
+        const SizedBox(height: 16), // gap //
 
-            // Category (dynamic icon)
-            _buildInfoRow(
-              icon: _categoryIcon(expense.category),
-              label: 'Category',
-              value: expense.category,
-            ),
-            const SizedBox(height: 12),
+        // Category (dynamic icon)
+        _buildInfoRow(
+          icon: _categoryIcon(expense.category), // icon //
+          label: 'Category', // label //
+          value: expense.category, // value //
+        ), // row //
+        const SizedBox(height: 12), // gap //
 
-            // Payment method (if available)
-            if (expense.paymentMethod != null &&
-                expense.paymentMethod!.isNotEmpty) ...[
-              _buildInfoRow(
-                icon: Icons.payment,
-                label: 'Payment Method',
-                value: expense.paymentMethod!,
-              ),
-              const SizedBox(height: 12),
-            ],
+        // Payment method (if available)
+        if (expense.paymentMethod != null && expense.paymentMethod!.isNotEmpty) ...[
+          _buildInfoRow(
+            icon: Icons.payment, // icon //
+            label: 'Payment Method', // label //
+            value: expense.paymentMethod!, // value //
+          ), // row //
+          const SizedBox(height: 12), // gap //
+        ], // conditional //
 
-            // Date and time
-            _buildInfoRow(
-              icon: Icons.access_time,
-              label: 'Date & Time',
-              value: _formatDateTime(expense.dateTime),
-            ),
-            const SizedBox(height: 12),
+        // Date and time
+        _buildInfoRow(
+          icon: Icons.access_time, // icon //
+          label: 'Date & Time', // label //
+          value: _formatDateTime(expense.dateTime), // value //
+        ), // row //
+        const SizedBox(height: 12), // gap //
 
-            // Note (if available)
-            if (expense.note != null && expense.note!.isNotEmpty) ...[
-              const Divider(),
-              const SizedBox(height: 8),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(Icons.note, size: 20, color: Colors.grey[600]),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Note',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          expense.note!,
-                          style: const TextStyle(fontSize: 14),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-            ],
+        // Note (if available)
+        if (expense.note != null && expense.note!.isNotEmpty) ...[
+          const Divider(), // divider //
+          const SizedBox(height: 8), // gap //
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start, // start //
+            children: [
+              Icon(Icons.note, size: 20, color: Colors.grey[600]), // icon //
+              const SizedBox(width: 12), // gap //
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start, // start //
+                  children: [
+                    Text(
+                      'Note', // label //
+                      style: TextStyle(
+                        fontSize: 12, // size //
+                        color: Colors.grey[600], // color //
+                        fontWeight: FontWeight.w500, // weight //
+                      ), // style //
+                    ), // label //
+                    const SizedBox(height: 4), // gap //
+                    Text(
+                      expense.note!, // note //
+                      style: const TextStyle(fontSize: 14), // style //
+                    ), // note //
+                  ], // children //
+                ), // column //
+              ), // expanded //
+            ], // children //
+          ), // row //
+          const SizedBox(height: 8), // gap //
+        ], // conditional //
 
-            const SizedBox(height: 24),
+        const SizedBox(height: 24), // gap //
 
-            // Actions
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    icon: const Icon(Icons.edit),
-                    label: const Text('Edit'),
-                    onPressed: _isDeleting
-                        ? null
-                        : () {
-                            HapticFeedback.selectionClick();
-                            Navigator.of(context).pop(); // close sheet first
-                            Future.microtask(widget.onEdit); // then push edit
-                          },
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    icon: _isDeleting
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.delete, color: Colors.red),
-                    label: Text(
-                      _isDeleting ? 'Deleting...' : 'Delete',
-                      style: const TextStyle(color: Colors.red),
-                    ),
-                    onPressed: _isDeleting ? null : () => _handleDelete(context),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
+        // Actions
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.edit), // icon //
+                label: const Text('Edit'), // label //
+                onPressed: _isDeleting
+                    ? null
+                    : () {
+                        HapticFeedback.selectionClick(); // haptic //
+                        Navigator.of(context).pop(); // close sheet //
+                        Future.microtask(widget.onEdit); // then edit //
+                      }, // onPressed //
+              ), // button //
+            ), // expanded //
+            const SizedBox(width: 12), // gap //
+            Expanded(
+              child: OutlinedButton.icon(
+                icon: _isDeleting
+                    ? const SizedBox(
+                        width: 18, // size //
+                        height: 18, // size //
+                        child: CircularProgressIndicator(strokeWidth: 2), // loader //
+                      ) // loader box //
+                    : const Icon(Icons.delete, color: Colors.red), // delete icon //
+                label: Text(
+                  _isDeleting ? 'Deleting...' : 'Delete', // label //
+                  style: const TextStyle(color: Colors.red), // style //
+                ), // label //
+                onPressed: _isDeleting ? null : () => _handleDelete(context), // delete //
+              ), // button //
+            ), // expanded //
+          ], // children //
+        ), // row //
+      ], // children //
+    ), // column //
+  ), // scroll //
+); // safe area //
+
   }
 
   // Category -> Icon mapping (English + a few Greek keywords)
@@ -310,12 +315,6 @@ class _ExpenseDetailsBottomSheetState extends State<ExpenseDetailsBottomSheet> {
 
     try {
       await widget.onDelete();
-
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Expense deleted')),
-        );
-      }
 
       if (context.mounted) {
         Navigator.pop(context); // close sheet after delete

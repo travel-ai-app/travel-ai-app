@@ -5,6 +5,7 @@ import '../models/trip.dart';                               // Μοντέλο Tr
 import '../models/day_part.dart';                           // Πρωί / Απόγευμα / Βράδυ
 import '../storage/local_storage.dart';                     // LocalStorage (SharedPreferences)
 import 'activity_repository.dart';                          // Το abstract ActivityRepository
+import 'package:flutter/foundation.dart';
 
 /// In-memory υλοποίηση του ActivityRepository.
 /// Κρατάει όλες τις δραστηριότητες σε λίστα στη μνήμη
@@ -45,7 +46,7 @@ class InMemoryActivityRepository implements ActivityRepository {
     final raw = await storage.getItem(_storageKey);         // Διαβάζουμε το JSON string
 
     if (raw == null || raw.isEmpty) {
-      print('[ActivityRepo] No stored activities found');
+    debugPrint('[ActivityRepo] No stored activities found');
       return;
     }
 
@@ -65,12 +66,12 @@ class InMemoryActivityRepository implements ActivityRepository {
           }
         }
 
-        print('[ActivityRepo] Loaded ${_activities.length} activities from storage');
+        debugPrint('[ActivityRepo] Loaded ${_activities.length} activities from storage');
       } else {
-        print('[ActivityRepo] Decoded JSON is not a List');
+        debugPrint('[ActivityRepo] Decoded JSON is not a List');
       }
     } catch (e) {
-      print('[ActivityRepo] Error loading activities: $e');
+      debugPrint('[ActivityRepo] Error loading activities: $e');
       // Αν το JSON είναι χαλασμένο, προς το παρόν απλώς το αγνοούμε.
     }
   }
@@ -85,7 +86,7 @@ class InMemoryActivityRepository implements ActivityRepository {
     final raw = jsonEncode(data);
     await storage.setItem(_storageKey, raw);
 
-    print('[ActivityRepo] Persisted ${_activities.length} activities to storage');
+    debugPrint('[ActivityRepo] Persisted ${_activities.length} activities to storage');
   }
 
   // ===================================================
@@ -101,7 +102,7 @@ class InMemoryActivityRepository implements ActivityRepository {
         .where((a) => a.tripId == trip.id)
         .toList();
 
-    print('[ActivityRepo] getActivitiesForTrip(${trip.id}) -> ${result.length} items');
+    debugPrint('[ActivityRepo] getActivitiesForTrip(${trip.id}) -> ${result.length} items');
 
     return result;
   }
@@ -121,7 +122,7 @@ class InMemoryActivityRepository implements ActivityRepository {
       return _isSameDate(a.date!, date);
     }).toList();
 
-    print('[ActivityRepo] getActivitiesForDay(${trip.id}, $date) -> ${result.length} items');
+    debugPrint('[ActivityRepo] getActivitiesForDay(${trip.id}, $date) -> ${result.length} items');
 
     return result;
   }
@@ -142,7 +143,7 @@ class InMemoryActivityRepository implements ActivityRepository {
       return a.dayPart == dayPart;
     }).toList();
 
-    print(
+    debugPrint(
       '[ActivityRepo] getActivitiesForDayPart(${trip.id}, $date, $dayPart) -> ${result.length} items',
     );
 
@@ -203,7 +204,7 @@ Future<void> updateActivity(Activity activity) async {
     _activities.clear();
     await LocalStorage.instance.removeItem(_storageKey);
     _loadedFromStorage = false;
-    print('[ActivityRepo] Cleared all activities');
+    debugPrint('[ActivityRepo] Cleared all activities');
   }
 
 

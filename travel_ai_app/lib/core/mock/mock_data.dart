@@ -1,6 +1,6 @@
-/// Mock δεδομένα για demo οθόνες και fake repositories.
-/// ΠΡΟΣΩΡΙΝΗ εκδοχή για να σταματήσουν τα errors.
-/// Μπορούμε αργότερα να τα γεμίσουμε με πραγματικά demo data.
+// Mock δεδομένα για demo οθόνες και fake repositories.
+// ΠΡΟΣΩΡΙΝΗ εκδοχή για να σταματήσουν τα errors.
+// Μπορούμε αργότερα να τα γεμίσουμε με πραγματικά demo data.
 
 import '../models/trip.dart';
 import '../models/trip_day.dart';
@@ -72,7 +72,8 @@ static Trip get demoTrip {
   static double get totalDemoExpensesThb {
     return demoExpenses.fold<double>(
       0,
-      (sum, e) => sum + (e.amount ?? 0),
+     (sum, e) => sum + e.amount,
+
     );
   }
 }

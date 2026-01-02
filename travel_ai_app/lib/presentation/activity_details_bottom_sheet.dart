@@ -1,80 +1,119 @@
-import 'package:flutter/material.dart';
-import 'package:travel_ai_app/core/models/activity.dart';
+import 'package:flutter/material.dart'; // UI //
+import 'package:travel_ai_app/core/models/activity.dart'; // model //
+
+enum ActivityDetailsAction {
+  edit, // edit action //
+  delete, // delete action //
+}
 
 class ActivityDetailsBottomSheet extends StatelessWidget {
-  final Activity activity;
+  final Activity activity; // activity //
 
   const ActivityDetailsBottomSheet({
     super.key,
     required this.activity,
-  });
+  }); // ctor //
 
   @override
   Widget build(BuildContext context) {
-    final cost = activity.estimatedCost;
-    final currency = activity.currencyCode ?? '';
+    final cost = activity.estimatedCost; // cost //
+    final currency = activity.currencyCode ?? ''; // currency //
 
     return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
+      child: SingleChildScrollView(
+        padding: EdgeInsets.only(
+          left: 16, // left //
+          right: 16, // right //
+          top: 16, // top //
+          bottom: 16 + MediaQuery.of(context).viewInsets.bottom, // keyboard safe //
+        ), // padding //
         child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min, // fit //
+          crossAxisAlignment: CrossAxisAlignment.start, // start //
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween, // spaced //
               children: [
                 const Text(
-                  'Activity details',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
+                  'Activity details', // title //
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold), // style //
+                ), // title //
                 IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
+                  icon: const Icon(Icons.close), // close //
+                  onPressed: () => Navigator.pop(context), // close //
+                ), // close btn //
+              ], // children //
+            ), // header row //
+            const SizedBox(height: 12), // gap //
+
             Text(
-              activity.title,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-            ),
+              activity.title, // title //
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600), // style //
+            ), // title //
             if (activity.description != null && activity.description!.isNotEmpty)
               Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(activity.description!),
-              ),
-            const SizedBox(height: 12),
+                padding: const EdgeInsets.only(top: 8), // pad //
+                child: Text(activity.description!), // desc //
+              ), // desc //
+
+            const SizedBox(height: 12), // gap //
+
             if (activity.category != null && activity.category!.isNotEmpty)
-              Text('Category: ${activity.category!}'),
+              Text('Category: ${activity.category!}'), // category //
+
             if (cost != null && cost > 0)
               Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: Text('Estimated cost: ${cost.toStringAsFixed(0)} $currency'),
-              ),
-            const SizedBox(height: 20),
+                padding: const EdgeInsets.only(top: 6), // pad //
+                child: Text('Estimated cost: ${cost.toStringAsFixed(0)} $currency'), // cost //
+              ), // cost //
+
+            const SizedBox(height: 20), // gap //
+
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    icon: const Icon(Icons.edit),
-                    label: const Text('Edit'),
-                    onPressed: () => Navigator.pop(context, 'edit'),
-                  ),
-                ),
-                const SizedBox(width: 12),
+                    icon: const Icon(Icons.edit), // icon //
+                    label: const Text('Edit'), // label //
+                    onPressed: () => Navigator.pop(context, ActivityDetailsAction.edit), // return action //
+                  ), // btn //
+                ), // expanded //
+                const SizedBox(width: 12), // gap //
                 Expanded(
                   child: OutlinedButton.icon(
-                    icon: const Icon(Icons.delete, color: Colors.red),
-                    label: const Text('Delete'),
-                    onPressed: () => Navigator.pop(context, 'delete'),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
+                    icon: const Icon(Icons.delete, color: Colors.red), // icon //
+                    label: const Text('Delete', style: TextStyle(color: Colors.red)), // red label //
+                    onPressed: () async {
+  final confirmed = await showDialog<bool>(
+    context: context, // ctx //
+    builder: (ctx) => AlertDialog(
+      title: const Text('Delete activity?'), // title //
+      content: const Text('This action cannot be undone.'), // content //
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false), // cancel //
+          child: const Text('Cancel'), // label //
+        ), // cancel //
+        FilledButton(
+          onPressed: () => Navigator.pop(ctx, true), // confirm //
+          child: const Text('Delete'), // label //
+        ), // delete //
+      ], // actions //
+    ), // dialog //
+  );
+
+  if (confirmed != true) return; // stop //
+  if (!context.mounted) return; // 👈 προσθήκη
+  Navigator.pop(context, ActivityDetailsAction.delete); // return action //
+},
+
+                  ), // btn //
+                ), // expanded //
+              ], // children //
+            ), // row //
+          ], // children //
+        ), // column //
+      ), // scroll //
+    ); // safe //
   }
 }

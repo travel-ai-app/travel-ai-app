@@ -61,9 +61,8 @@ class AppTextStyles { // Κλάση με κεντρικούς ορισμούς �
 class AppTheme { // Κλάση που εκθέτει τα ThemeData για χρήση στο MaterialApp
   /// Light theme (προεπιλογή)                             //
   static ThemeData get light { // Getter που επιστρέφει ThemeData για light mode
-    final base = ThemeData.light(); // Ξεκινάμε από το default light ThemeData
+    final base = ThemeData.light(useMaterial3: true);// Ξεκινάμε από το default light ThemeData
     return base.copyWith( // Αντιγράφουμε και τροποποιούμε όπου χρειαζόμαστε
-      useMaterial3: true, // Ενεργοποιούμε Material 3
       scaffoldBackgroundColor: AppColors.background, // Χρώμα φόντου για όλες τις σελίδες
       colorScheme: ColorScheme.fromSeed( // Ορίζουμε ColorScheme με βάση ένα seed color
         seedColor: AppColors.primary, // Χρησιμοποιεί το primary σαν βάση
@@ -140,9 +139,8 @@ class AppTheme { // Κλάση που εκθέτει τα ThemeData για χρ�
 
   /// Dark theme placeholder (θα το φτιάξουμε σωστά αργότερα) //
   static ThemeData get dark { // Getter για dark ThemeData
-    final base = ThemeData.dark(); // Ξεκινάμε από default dark
+    final base = ThemeData.dark(useMaterial3: true); // ✅ εδώ
     return base.copyWith( // Προσωρινές μικρές αλλαγές
-      useMaterial3: true, // Material 3 και εδώ
       colorScheme: ColorScheme.fromSeed( // Color scheme για dark mode
         seedColor: AppColors.primaryDark, // Πιο σκούρο primary
         brightness: Brightness.dark, // Dark mode
