@@ -12,6 +12,7 @@ import 'package:fl_chart/fl_chart.dart';
 import '../expenses/add_expense_demo_screen.dart'; // ή το σωστό path στο project σου
 import 'package:travel_ai_app/presentation/activity_details_bottom_sheet.dart';
 import '../expenses/expense_details_bottom_sheet.dart';
+import 'package:travel_ai_app/presentation/legal_screen.dart'; // legal //
 
 
 /// Οθόνη επισκόπησης για ένα Trip με tabs:
@@ -63,6 +64,20 @@ appBar: AppBar(
       ), // tabbar //
     ), // align //
   ), // preferred size //
+  actions: [ // actions //
+  IconButton( // about/legal //
+    icon: const Icon(Icons.policy_outlined), // icon //
+    tooltip: 'About & Legal', // tooltip //
+    onPressed: () { // open //
+      Navigator.of(context).push( // navigate //
+        MaterialPageRoute<void>( // route //
+          builder: (_) => const LegalScreen(), // screen //
+        ), // end route //
+      ); // end push //
+    }, // end //
+  ), // end button //
+], // end actions //
+
 ),
 
           body: TabBarView(
