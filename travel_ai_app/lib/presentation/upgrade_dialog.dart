@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart'; // ui //
 import 'package:travel_ai_app/core/monetization/monetization_gate.dart'; // GateResult //
+import 'paywall_screen.dart'; // paywall //
 
 
 enum UpgradeReason { // reasons //
@@ -57,13 +58,18 @@ Future<void> showUpgradeDialog( // dialog helper //
           onPressed: () => Navigator.of(context).pop(), // close //
           child: const Text('Maybe later'), // label //
         ), // end secondary //
-        ElevatedButton( // primary //
-          onPressed: () { // tap //
-            Navigator.of(context).pop(); // close //
-            // TODO(v2): open paywall screen here // placeholder //
-          }, // end tap //
-          child: const Text('See Pro options'), // label //
-        ), // end primary //
+ElevatedButton(
+  onPressed: () {
+    Navigator.of(context).pop(); // close dialog //
+    Navigator.of(context).push( // open paywall //
+      MaterialPageRoute(
+        builder: (_) => const PaywallScreen(),
+      ),
+    );
+  },
+  child: const Text('Learn about Pro'),
+),
+
       ], // end actions //
     ), // end AlertDialog //
   ); // end showDialog //

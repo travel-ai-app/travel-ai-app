@@ -11,6 +11,8 @@ import 'package:travel_ai_app/core/constants/app_limits.dart'; // limits //
 import 'package:travel_ai_app/presentation/upgrade_dialog.dart'; // upgrade dialog //
 import 'package:travel_ai_app/core/monetization/monetization_gate.dart'; // gate //
 import 'package:travel_ai_app/core/monetization/monetization_state.dart'; // state //
+import 'package:travel_ai_app/presentation/widgets/pro_badge.dart'; // badge //
+
 
 
 /// Οθόνη με όλα τα ταξίδια (My Trips)
@@ -135,9 +137,17 @@ class _MyTripsScreenState extends State<MyTripsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('My Trips'),
+appBar: AppBar(
+  title: const Text('Trips'),
+  actions: [
+    if (AppLimits.currentState.isPremium) // placeholder condition //
+      const Padding(
+        padding: EdgeInsets.only(right: 12),
+        child: ProBadge(),
       ),
+  ],
+),
+
       body: RefreshIndicator(
         onRefresh: _loadTrips,
         child: _loading
