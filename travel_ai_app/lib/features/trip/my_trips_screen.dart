@@ -1,12 +1,14 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart'; // ui //
 
-import '../../core/models/trip.dart';                          // Μοντέλο Trip
-import '../../core/data/in_memory_trip_repository.dart';       // In-memory Trip repo
-import '../../core/data/in_memory_expense_repository.dart';    // In-memory Expense repo
-import '../../core/data/in_memory_activity_repository.dart';   // In-memory Activity repo
+import '../../core/models/trip.dart'; // Trip model //
+import '../../core/data/in_memory_trip_repository.dart'; // Trip repo //
+import '../../core/data/in_memory_expense_repository.dart'; // Expense repo //
+import '../../core/data/in_memory_activity_repository.dart'; // Activity repo //
 
-import 'create_trip_screen.dart';                              // Οθόνη δημιουργίας trip
-import 'trip_overview_screen.dart';                            // Οθόνη overview trip
+import 'create_trip_screen.dart'; // Create/Edit screen //
+import 'trip_overview_screen.dart'; // Trip overview //
+import 'package:travel_ai_app/core/constants/app_limits.dart'; // limits //
+import 'package:travel_ai_app/presentation/upgrade_dialog.dart'; // upgrade dialog //
 
 /// Οθόνη με όλα τα ταξίδια (My Trips)
 class MyTripsScreen extends StatefulWidget {
@@ -17,62 +19,113 @@ class MyTripsScreen extends StatefulWidget {
 }
 
 class _MyTripsScreenState extends State<MyTripsScreen> {
-  final InMemoryTripRepository _tripRepo = InMemoryTripRepository();
+  final InMemoryTripRepository _tripRepo = InMemoryTripRepository(); // repo //
 
-  List<Trip> _trips = <Trip>[];
-  bool _loading = true;
+  List<Trip> _trips = <Trip>[]; // trips //
+  bool _loading = true; // loading //
 
   @override
   void initState() {
-    super.initState();
-    _loadTrips();
+    super.initState(); // init //
+    _loadTrips(); // load //
   }
 
   Future<void> _loadTrips() async {
     try {
-      // 1️⃣ Πρώτα φορτώνουμε από το local storage (SharedPreferences)
-      await _tripRepo.loadFromStorage();                    // Διαβάζει JSON και γεμίζει _trips
+      await _tripRepo.loadFromStorage(); // load from prefs //
+      final trips = _tripRepo.getTrips(); // get from memory //
 
-      // 2️⃣ Μετά παίρνουμε τη λίστα από τη μνήμη
-      final trips = _tripRepo.getTrips();                   // Παίρνουμε όλα τα trips
-
+      if (!mounted) return; // safety //
       setState(() {
-        _trips = trips;                                     // Αποθηκεύουμε στη state
-        _loading = false;                                   // Σταματάμε το loading
+        _trips = trips; // set trips //
+        _loading = false; // stop loading //
       });
     } catch (e) {
+      if (!mounted) return; // safety //
       setState(() {
-        _trips = <Trip>[];                                  // Αν κάτι πάει στραβά → κενή λίστα
-        _loading = false;                                   // Σταματάμε το loading
+        _trips = <Trip>[]; // empty //
+        _loading = false; // stop loading //
       });
     }
   }
 
   Future<void> _onCreateTripPressed() async {
-    // Ανοίγουμε την CreateTripScreen και περιμένουμε να μας επιστρέψει ένα Trip
-    final Trip? newTrip = await Navigator.of(context).push<Trip>(
+    final Trip? newTrip = await Navigator.of(context).push<Trip>( // open create //
       MaterialPageRoute(
-        builder: (_) => const CreateTripScreen(),
+        builder: (_) => const CreateTripScreen(), // create //
       ),
     );
 
-    // Αν γύρισε κανονικό trip, το αποθηκεύουμε στο in-memory repo
     if (newTrip != null) {
-      final existing = InMemoryTripRepository().getTripById(newTrip.id);
+      final existing = _tripRepo.getTripById(newTrip.id); // check exists //
       if (existing == null) {
-        await InMemoryTripRepository().addTrip(newTrip);
+        await _tripRepo.addTrip(newTrip); // add //
       }
     }
 
-    // Και μετά ανανεώνουμε τη λίστα
-    await _loadTrips();
+    await _loadTrips(); // refresh //
+  }
+
+  Future<void> _onEditTripPressed(Trip trip) async {
+    final Trip? updatedTrip = await Navigator.of(context).push<Trip>( // open edit //
+      MaterialPageRoute(
+        builder: (_) => CreateTripScreen(existingTrip: trip), // prefill //
+      ),
+    );
+
+    if (updatedTrip != null) {
+      // NOTE: updateTrip must exist in repo (see below) //
+      await _tripRepo.updateTrip(updatedTrip); // update + persist //
+      await _loadTrips(); // refresh //
+      if (!context.mounted) return; // safety //
+      ScaffoldMessenger.of(context).showSnackBar( // feedback //
+        const SnackBar(content: Text('Trip updated')), // msg //
+      ); // snackbar //
+    }
   }
 
   void _openTrip(Trip trip) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => TripOverviewScreen(trip: trip),
+        builder: (_) => TripOverviewScreen(trip: trip), // overview //
       ),
+    );
+  }
+
+  Future<bool> _confirmDeleteTrip(BuildContext context) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete trip'),
+        content: const Text(
+          'This will permanently delete this trip and all its data.\n'
+          'This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    return result ?? false;
+  }
+
+  Future<void> _deleteTripAndRefresh(Trip trip) async {
+    await _tripRepo.deleteTrip(trip.id); // delete + persist //
+    await _loadTrips(); // refresh //
+    if (!context.mounted) return; // safety //
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Trip deleted')),
     );
   }
 
@@ -101,15 +154,74 @@ class _MyTripsScreenState extends State<MyTripsScreen> {
                     itemCount: _trips.length,
                     itemBuilder: (context, index) {
                       final trip = _trips[index];
-                      return _TripListTile(
-                        trip: trip,
-                        onTap: () => _openTrip(trip),
+
+                      return Dismissible(
+                        key: ValueKey(trip.id),
+                        direction: DismissDirection.horizontal, // ✅ both //
+
+                        // ✅ Swipe δεξιά (Edit)
+                        background: Container(
+                          alignment: Alignment.centerLeft,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          color: Colors.blueGrey,
+                          child: const Icon(Icons.edit, color: Colors.white),
+                        ),
+
+                        // ✅ Swipe αριστερά (Delete)
+                        secondaryBackground: Container(
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          color: Colors.red,
+                          child: const Icon(Icons.delete, color: Colors.white),
+                        ),
+
+                        confirmDismiss: (direction) async {
+                          // ✅ right swipe -> edit (NO dismiss)
+                          if (direction == DismissDirection.startToEnd) {
+                            await _onEditTripPressed(trip); // edit flow //
+                            return false; // do not remove //
+                          }
+
+                          // ✅ left swipe -> delete (confirm)
+                          if (direction == DismissDirection.endToStart) {
+                            return await _confirmDeleteTrip(context); // confirm //
+                          }
+
+                          return false;
+                        },
+
+                        onDismissed: (direction) async {
+                          if (direction == DismissDirection.endToStart) {
+                            await _deleteTripAndRefresh(trip); // delete //
+                          }
+                        },
+
+                        child: _TripListTile(
+                          trip: trip,
+                          onTap: () => _openTrip(trip),
+                        ),
                       );
                     },
                   ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _onCreateTripPressed,
+        onPressed: () async {
+          final repo = InMemoryTripRepository(); // repo //
+          final trips = await repo.getTrips(); // existing //
+
+          // 🔒 v1 LIMIT: 1 active trip
+          if (!AppLimits.isPro &&
+              trips.length >= AppLimits.freeMaxActiveTrips) {
+            if (!context.mounted) return; // safety //
+            await showUpgradeDialog(
+              context,
+              reason: UpgradeReason.tripLimit,
+            );
+            return; // stop //
+          }
+
+          await _onCreateTripPressed(); // create //
+        },
         child: const Icon(Icons.add),
       ),
     );
@@ -134,16 +246,13 @@ class _TripListTile extends StatelessWidget {
     final end = trip.endDate;
     final String currency = trip.currencyCode;
 
-    // Ημερομηνίες ταξιδιού
     final String dateRangeText =
         '${start.day.toString().padLeft(2, '0')}/${start.month.toString().padLeft(2, '0')}/${start.year}'
         ' - '
         '${end.day.toString().padLeft(2, '0')}/${end.month.toString().padLeft(2, '0')}/${end.year}';
 
-    // Συνολικές ημέρες από το getter totalDays
     final int dayCount = trip.totalDays;
 
-    // Πρώτο γράμμα προορισμού για το avatar
     final String initial = trip.destination.isNotEmpty
         ? trip.destination.characters.first.toUpperCase()
         : '?';
@@ -191,7 +300,6 @@ class _TripListTile extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 4),
-                // Mini summary (days / activities / total spent)
                 _TripMiniSummaryRow(
                   trip: trip,
                   dayCount: dayCount,
@@ -207,14 +315,13 @@ class _TripListTile extends StatelessWidget {
   }
 }
 
-
 /// Δεδομένα σύνοψης για ένα trip.
 class _TripSummary {
-  final double totalExpenses;      // Σύνολο εξόδων
-  final int activityCount;         // Πλήθος activities
-  final int dayCount;              // Πλήθος ημερών
-  final double? budget;            // Budget ταξιδιού (αν υπάρχει)
-  final double? budgetPercent;     // % του budget που έχει ξοδευτεί
+  final double totalExpenses;
+  final int activityCount;
+  final int dayCount;
+  final double? budget;
+  final double? budgetPercent;
 
   const _TripSummary({
     required this.totalExpenses,
@@ -224,7 +331,6 @@ class _TripSummary {
     this.budgetPercent,
   });
 }
-
 
 /// FutureBuilder που φορτώνει mini σύνοψη για κάθε trip.
 class _TripMiniSummaryRow extends StatelessWidget {
@@ -287,15 +393,12 @@ class _TripMiniSummaryRow extends StatelessWidget {
 
         final String daysLabel =
             summary.dayCount > 0 ? '${summary.dayCount} days' : '- days';
-        final String activitiesLabel =
-            '${summary.activityCount} activities';
-
+        final String activitiesLabel = '${summary.activityCount} activities';
         final String spentLabel =
             '${summary.totalExpenses.toStringAsFixed(0)} $currency';
 
         String text;
 
-        // Αν έχουμε budget, δείχνουμε Χ / Υ + %
         if (summary.budget != null && summary.budget! > 0) {
           final b = summary.budget!;
           final String budgetBase =
@@ -305,10 +408,8 @@ class _TripMiniSummaryRow extends StatelessWidget {
               ? ' (${summary.budgetPercent!.toStringAsFixed(0)}%)'
               : '';
 
-          text =
-              '$daysLabel · $activitiesLabel · $budgetBase$percentText';
+          text = '$daysLabel · $activitiesLabel · $budgetBase$percentText';
         } else {
-          // Χωρίς budget → όπως πριν
           text = '$daysLabel · $activitiesLabel · $spentLabel';
         }
 
@@ -325,5 +426,3 @@ class _TripMiniSummaryRow extends StatelessWidget {
     );
   }
 }
-
-

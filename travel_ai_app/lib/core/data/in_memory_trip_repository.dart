@@ -158,6 +158,18 @@ Future<void> _persistToStorage() async {                         // Ιδιωτι
     await _persistToStorage();                                     // Αποθήκευση μετά τη διαγραφή
   }
 
+Future<void> updateTrip(Trip trip) async { // update trip //
+  final index = _trips.indexWhere((t) => t.id == trip.id); // find //
+  if (index == -1) return; // not found //
+  _trips[index] = trip; // replace //
+  if (_activeTrip?.id == trip.id) { // active //
+    _activeTrip = trip; // set active //
+    _activeTripController.add(_activeTrip); // emit //
+  }
+  await _persistToStorage(); // persist //
+} // end update //
+
+
   /// Επιστρέφει ένα trip βάση id (ή null αν δεν βρεθεί).          // Αναζήτηση trip
   Trip? getTripById(String tripId) {                               // Μέθοδος get-by-id
     try {
