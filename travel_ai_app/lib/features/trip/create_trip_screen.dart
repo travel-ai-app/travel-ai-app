@@ -2,6 +2,9 @@ import 'package:flutter/material.dart'; // flutter //
 import 'package:travel_ai_app/core/models/trip.dart'; // model //
 import 'package:travel_ai_app/core/constants/app_limits.dart'; // limits //
 import 'package:travel_ai_app/presentation/upgrade_dialog.dart'; // upgrade dialog //
+import 'package:travel_ai_app/core/monetization/monetization_gate.dart'; // gate //
+import 'package:travel_ai_app/core/monetization/monetization_state.dart'; // state //
+
 
 class CreateTripScreen extends StatefulWidget {
   final Trip? existingTrip; // null = create, not null = edit //
@@ -207,14 +210,24 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
     final int dayCount = _endDate!.difference(_startDate!).inDays + 1; // days //
 
     // 🔒 v1 LIMIT: max days per trip (works for create + edit) //
-    if (!AppLimits.isPro && dayCount > AppLimits.freeMaxTripDays) {
-      if (!mounted) return; // safety //
-      await showUpgradeDialog(
-        context,
-        reason: UpgradeReason.dayLimit, // days limit reason //
-      );
-      return; // stop save //
-    }
+final gate = MonetizationGate.canCreateTripWithDays( // gate check //
+  state: AppLimits.isPro // current tier source //
+      ? MonetizationState.premium // premium //
+      : MonetizationState.free, // free //
+  activeTripsCount: 0, // not relevant here; create/edit screen only checks days //
+  requestedDays: dayCount, // requested days //
+); // end gate //
+
+final canProceed = await ensureAllowedOrShowUpgrade( // defensive helper //
+  context: context, // ctx //
+  gate: gate, // gate result //
+); // end helper //
+
+if (!canProceed) { // blocked //
+  return; // stop save //
+} // end blocked //
+
+
 
     final existing = widget.existingTrip; // existing //
     final trip = Trip(

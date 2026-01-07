@@ -9,6 +9,9 @@ import 'create_trip_screen.dart'; // Create/Edit screen //
 import 'trip_overview_screen.dart'; // Trip overview //
 import 'package:travel_ai_app/core/constants/app_limits.dart'; // limits //
 import 'package:travel_ai_app/presentation/upgrade_dialog.dart'; // upgrade dialog //
+import 'package:travel_ai_app/core/monetization/monetization_gate.dart'; // gate //
+import 'package:travel_ai_app/core/monetization/monetization_state.dart'; // state //
+
 
 /// Οθόνη με όλα τα ταξίδια (My Trips)
 class MyTripsScreen extends StatefulWidget {
@@ -210,15 +213,22 @@ class _MyTripsScreenState extends State<MyTripsScreen> {
           final trips = await repo.getTrips(); // existing //
 
           // 🔒 v1 LIMIT: 1 active trip
-          if (!AppLimits.isPro &&
-              trips.length >= AppLimits.freeMaxActiveTrips) {
-            if (!context.mounted) return; // safety //
-            await showUpgradeDialog(
-              context,
-              reason: UpgradeReason.tripLimit,
-            );
-            return; // stop //
-          }
+final gate = MonetizationGate.canCreateTrip( // gate check //
+  state: AppLimits.isPro // current tier source //
+      ? MonetizationState.premium // premium //
+      : MonetizationState.free, // free //
+  activeTripsCount: trips.length, // active trips //
+); // end gate //
+
+if (gate != GateResult.allowed) { // blocked //
+  if (!context.mounted) return; // safety //
+  await showUpgradeDialog( // existing dialog //
+    context, // ctx //
+    reason: UpgradeReason.tripLimit, // keep same reason //
+  ); // end dialog //
+  return; // stop //
+} // end blocked //
+
 
           await _onCreateTripPressed(); // create //
         },
